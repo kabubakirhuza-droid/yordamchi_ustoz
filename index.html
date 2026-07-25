@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="uz" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ZIN-NUR akademiyasi — Ro'yxatdan o'tish</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="icon" href="./icon.png">
+<style>
+
+/* Базовый стиль для кнопок преподавателей */
+.ustoza-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 9999px;
+  background-color: transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.ustoza-chip:hover {
+  border-color: #cbd5e1;
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
+/* Цвет счетчика занятости */
+.ustoza-chip__count {
+  font-size: 0.8em;
+  color: #64748b;
+}
+
+/* 🔥 СТИЛЬ ДЛЯ ВЫБРАННОГО ПРЕПОДАВАТЕЛЯ (Этого не хватало) */
+.ustoza-chip.is-selected {
+  background-color: #059669 !important; /* Красивый зеленый цвет (измените под свой дизайн) */
+  color: #ffffff !important;
+  border-color: #059669 !important;
+}
+
+.ustoza-chip.is-selected .ustoza-chip__count {
+  color: rgba(255, 255, 255, 0.8) !important;
+}
+
+/* Если преподаватель полностью занят */
+.ustoza-chip.is-taken {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: #f1f5f9;
+}
+
+:root{
+  --emerald-700: #0B6B49;
+  --emerald-600: #0F8A5F;
+  --emerald-400: #3DD68C;
+  --mint-100: #E8F8F1;
+  --white: #FFFFFF;
+  --ink-950: #04231A;
+  --ink-900: #072B20;
+  --radius-lg: 28px;
+  --radius-md: 18px;
+  --radius-sm: 12px;
+}
+
+html[data-theme="light"]{
+  --bg-1: #FFFFFF; --bg-2: var(--mint-100);
+  --text-strong: #0A2B20; --text-soft: #55685F; --topbar-text: #0A2B20;
+  --eyebrow-bg: rgba(15,138,95,0.08); --eyebrow-border: rgba(15,138,95,0.18);
+  --particle-color: var(--emerald-600); --particle-opacity: 0.28; --aurora-opacity: 0.35;
+  --card-shadow: 0 30px 70px rgba(15,138,95,0.16);
+  --option-hover: #F0FAF5;
+}
+html[data-theme="dark"]{
+  --bg-1: var(--ink-900); --bg-2: var(--ink-950);
+  --text-strong: #EAF7F0; --text-soft: rgba(234,247,240,0.68); --topbar-text: #EAF7F0;
+  --eyebrow-bg: rgba(255,255,255,0.06); --eyebrow-border: rgba(255,255,255,0.12);
+  --particle-color: var(--emerald-400); --particle-opacity: 0.5; --aurora-opacity: 0.55;
+  --card-shadow: 0 40px 100px rgba(2,20,14,0.55);
+  --option-hover: #F0FAF5;
+}
+
+*{ box-sizing:border-box; margin:0; padding:0; }
+body{ font-family:'Inter', sans-serif; color:var(--text-strong); background:var(--bg-1); -webkit-font-smoothing:antialiased; transition:background .35s ease, color .35s ease; }
+.wrap{ max-width:1120px; margin:0 auto; padding:0 28px; position:relative; z-index:2; }
+h1, .brand__name{ font-family:'Bricolage Grotesque', sans-serif; }
+
+.register{ position:relative; overflow:hidden; background:radial-gradient(120% 90% at 15% 0%, var(--bg-1) 0%, var(--bg-2) 60%); padding-bottom:120px; transition:background .35s ease; }
+.aurora{ position:absolute; inset:0; z-index:0; overflow:hidden; pointer-events:none; }
+.blob{ position:absolute; border-radius:50%; filter:blur(90px); opacity:var(--aurora-opacity); animation:drift 18s ease-in-out infinite; }
+.b1{ width:520px; height:520px; top:-180px; left:-120px; background:radial-gradient(circle, var(--emerald-600) 0%, transparent 70%); }
+.b2{ width:460px; height:460px; top:-60px; right:-160px; background:radial-gradient(circle, var(--emerald-400) 0%, transparent 70%); opacity:calc(var(--aurora-opacity) * 0.7); animation-delay:3s; }
+.b3{ width:600px; height:600px; bottom:-320px; left:30%; background:radial-gradient(circle, var(--emerald-700) 0%, transparent 70%); animation-delay:6s; }
+@keyframes drift{ 0%,100%{ transform:translate(0,0) scale(1); } 50%{ transform:translate(30px,-24px) scale(1.08); } }
+.particles{ position:absolute; inset:0; z-index:1; pointer-events:none; }
+.p{ position:absolute; background:var(--particle-color); opacity:var(--particle-opacity); animation:floatUp 14s linear infinite; }
+.sq{ border-radius:4px; } .dot{ border-radius:50%; }
+.p:nth-child(1){ width:10px; height:10px; left:8%;  animation-delay:0s; }
+.p:nth-child(2){ width:7px;  height:7px;  left:22%; animation-delay:2.5s; }
+.p:nth-child(3){ width:13px; height:13px; left:38%; animation-delay:5s; }
+.p:nth-child(4){ width:6px;  height:6px;  left:55%; animation-delay:1.4s; }
+.p:nth-child(5){ width:9px;  height:9px;  left:68%; animation-delay:7.2s; }
+.p:nth-child(6){ width:5px;  height:5px;  left:80%; animation-delay:3.8s; }
+.p:nth-child(7){ width:11px; height:11px; left:90%; animation-delay:9s; }
+.p:nth-child(8){ width:8px;  height:8px;  left:48%; animation-delay:6.1s; }
+@keyframes floatUp{ 0%{ transform:translateY(110vh) rotate(0deg); opacity:0; } 8%{ opacity:var(--particle-opacity); } 92%{ opacity:calc(var(--particle-opacity) * 0.8); } 100%{ transform:translateY(-10vh) rotate(90deg); opacity:0; } }
+
+.register__top{ display:flex; align-items:center; justify-content:space-between; padding-top:36px; gap:16px; flex-wrap:wrap; }
+.brand{ display:flex; align-items:center; gap:12px; }
+.brand__mark{ height:56px; width:auto; object-fit:contain; flex-shrink:0; border-radius:50%; }
+.brand__name{ font-size:1.05rem; font-weight:700; color:var(--topbar-text); line-height:1.15; }
+.brand__name em{ display:block; font-style:normal; font-family:'Inter', sans-serif; font-size:0.66rem; font-weight:600; letter-spacing:0.14em; text-transform:uppercase; color:var(--emerald-600); }
+html[data-theme="dark"] .brand__name em{ color:var(--emerald-400); }
+@media (max-width: 560px){ .brand__mark{ height:44px; } .brand__name{ font-size:0.92rem; } }
+.top-controls{ display:flex; align-items:center; gap:10px; }
+.lang-switch{ display:flex; gap:2px; background:var(--eyebrow-bg); border:1px solid var(--eyebrow-border); border-radius:999px; padding:3px; }
+.lang-btn{ border:none; background:transparent; cursor:pointer; padding:6px 11px; border-radius:999px; font-size:0.72rem; font-weight:700; letter-spacing:0.03em; color:var(--text-soft); transition:background .2s, color .2s; }
+.lang-btn.active{ background:var(--emerald-600); color:#fff; }
+.theme-toggle{ width:34px; height:34px; border-radius:50%; border:1px solid var(--eyebrow-border); background:var(--eyebrow-bg); cursor:pointer; display:flex; align-items:center; justify-content:center; color:var(--emerald-600); transition:background .2s, transform .2s; }
+html[data-theme="dark"] .theme-toggle{ color:var(--emerald-400); }
+.theme-toggle:hover{ transform:translateY(-1px); }
+.theme-toggle svg{ width:16px; height:16px; }
+.theme-toggle .icon-sun{ display:none; }
+html[data-theme="dark"] .theme-toggle .icon-moon{ display:none; }
+html[data-theme="dark"] .theme-toggle .icon-sun{ display:block; }
+.eyebrow{ font-size:0.7rem; font-weight:600; letter-spacing:0.14em; text-transform:uppercase; color:var(--topbar-text); background:var(--eyebrow-bg); border:1px solid var(--eyebrow-border); padding:8px 15px; border-radius:999px; }
+
+.register__hero{ padding-top:72px; padding-bottom:44px; text-align:center; }
+.title{ font-size:clamp(2.2rem, 5.4vw, 4.2rem); font-weight:700; line-height:1.08; letter-spacing:-0.02em; color:var(--text-strong); max-width:820px; margin:0 auto 20px; }
+.title-accent{ font-weight:400; color:var(--emerald-600); }
+html[data-theme="dark"] .title-accent{ color:var(--emerald-400); }
+.subtitle{ font-size:clamp(1rem, 1.6vw, 1.15rem); color:var(--text-soft); max-width:480px; margin:0 auto; }
+
+.form-card{ position:relative; z-index:3; max-width:760px; margin:0 auto; background:var(--white); border-radius:var(--radius-lg); padding:40px 40px 36px; box-shadow:var(--card-shadow), 0 0 0 1px rgba(15,138,95,0.06); animation:cardRise 0.8s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes cardRise{ from{ opacity:0; transform:translateY(36px) scale(0.98); } to{ opacity:1; transform:translateY(0) scale(1); } }
+
+.step-label{ display:flex; align-items:center; gap:8px; font-size:0.72rem; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:var(--emerald-600); margin:26px 0 12px; }
+.step-label:first-child{ margin-top:0; }
+.step-num{ width:20px; height:20px; border-radius:50%; background:var(--emerald-600); color:#fff; display:flex; align-items:center; justify-content:center; font-size:0.68rem; }
+
+.form-row{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+
+.field{ position:relative; margin-bottom:20px; }
+.field input, .field textarea{ width:100%; padding:20px 4px 8px; font-family:'Inter', sans-serif; font-size:0.98rem; color:#0A2B20; background:transparent; border:none; border-bottom:1.6px solid #DCE6E1; border-radius:0; transition:border-color .22s ease; resize:vertical; }
+.field label{ position:absolute; left:4px; top:18px; font-size:0.98rem; color:#8A9C93; pointer-events:none; transition:top .18s ease, font-size .18s ease, color .18s ease; }
+.field label .required{ color:var(--emerald-600); margin-left:3px; }
+.field label .optional{ font-weight:500; color:#AAB8B1; font-size:0.76rem; }
+.field input:focus, .field textarea:focus{ outline:none; border-color:var(--emerald-600); }
+.field input:focus ~ label, .field input:not(:placeholder-shown) ~ label,
+.field textarea:focus ~ label, .field textarea:not(:placeholder-shown) ~ label{ top:2px; font-size:0.72rem; font-weight:600; color:var(--emerald-600); }
+.field.invalid input, .field.invalid textarea{ border-color:#E0554F; }
+.field .error-text{ display:none; font-size:0.76rem; color:#C43E38; margin-top:6px; font-weight:500; }
+.field.invalid .error-text{ display:block; }
+
+.field--dd{ position:relative; margin-bottom:8px; }
+.dd__trigger{ width:100%; padding:20px 26px 8px 4px; font-family:'Inter', sans-serif; font-size:0.98rem; color:#0A2B20; background:transparent; border:none; border-bottom:1.6px solid #DCE6E1; text-align:left; cursor:pointer; position:relative; transition:border-color .22s ease; }
+.dd__value{ display:block; min-height:1.3em; }
+.dd__value.is-placeholder{ color:transparent; }
+.dd__chevron{ position:absolute; right:2px; top:16px; width:14px; height:14px; color:var(--emerald-600); transition:transform .2s ease; pointer-events:none; }
+.field--dd.open .dd__trigger{ border-color:var(--emerald-600); }
+.field--dd.open .dd__chevron{ transform:rotate(180deg); }
+.field--dd label{ position:absolute; left:4px; top:18px; font-size:0.98rem; color:#8A9C93; pointer-events:none; transition:top .18s ease, font-size .18s ease, color .18s ease; }
+.field--dd.has-value label, .field--dd.open label{ top:2px; font-size:0.72rem; font-weight:600; color:var(--emerald-600); }
+.field--dd.invalid .dd__trigger{ border-color:#E0554F; }
+.dd__panel{ position:absolute; left:0; right:0; top:calc(100% + 8px); z-index:40; background:#fff; border:1px solid #E3ECE7; border-radius:14px; box-shadow:0 24px 48px rgba(2,20,14,0.18); max-height:260px; overflow-y:auto; padding:6px; opacity:0; visibility:hidden; transform:translateY(-6px); transition:opacity .16s ease, transform .16s ease, visibility .16s; }
+.field--dd.open .dd__panel{ opacity:1; visibility:visible; transform:translateY(0); }
+.dd__option{ padding:10px 12px; border-radius:9px; font-size:0.92rem; color:#0A2B20; cursor:pointer; transition:background .14s ease; }
+.dd__option:hover, .dd__option.is-focused{ background:var(--option-hover); }
+.dd__option.is-selected{ color:var(--emerald-700); font-weight:700; background:var(--option-hover); }
+
+.timetable-block{ margin-bottom:8px; }
+.timetable-placeholder{ padding:26px 18px; text-align:center; font-size:0.88rem; color:var(--text-soft); background:var(--bg-2); border-radius:var(--radius-md); }
+
+.week-nav{ display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; gap:10px; }
+.week-nav__btn{ border:1px solid var(--eyebrow-border); background:var(--eyebrow-bg); color:var(--emerald-700); border-radius:999px; padding:8px 14px; font-size:0.78rem; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:6px; transition:background .2s, opacity .2s; white-space:nowrap; }
+.week-nav__btn:hover{ background:var(--option-hover); }
+.week-nav__btn:disabled{ opacity:0.35; cursor:not-allowed; }
+.week-nav__label{ font-size:0.82rem; font-weight:700; color:#0A2B20 !important; text-align:center; flex:1; }
+
+.legend{ display:flex; gap:18px; flex-wrap:wrap; margin-bottom:14px; font-size:0.85rem; font-weight:800; }
+.legend span{ display:flex; align-items:center; gap:7px; }
+.legend span span{ color:#0A2B20 !important; }
+.legend i{ width:16px; height:16px; border-radius:5px; display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; position:relative; }
+.legend i.lg-free{ background:#FFFFFF; border:1.5px solid #C3D0CA; }
+.legend i.lg-partial{ background:#5EE0A0; border:1.5px solid #0F8A5F; }
+.legend i.lg-full{ background:#8B96A0; border:1.5px solid #6B7580; }
+.legend i.lg-selected{ background:var(--emerald-600); border:1.5px solid var(--emerald-700); }
+.legend i.lg-selected::after{ content:"✓"; color:#fff; font-size:11px; font-weight:900; line-height:1; }
+html[data-theme="dark"] .legend i.lg-free{ background:#12261E; border-color:#3E5A4E; }
+html[data-theme="dark"] .legend i.lg-partial{ background:#2FD98C; border-color:#3DD68C; }
+html[data-theme="dark"] .legend i.lg-full{ background:#5B6670; border-color:#7A848C; }
+
+.tt-scroll{ overflow-x:auto; border:1px solid #E3ECE7; border-radius:16px; -webkit-overflow-scrolling:touch; }
+.tt-grid{ display:grid; grid-template-columns:74px repeat(7, minmax(80px,1fr)); min-width:660px; }
+.tt-corner{ position:sticky; left:0; top:0; z-index:4; background:#fff; border-bottom:1.5px solid #E3ECE7; }
+.tt-head{ position:sticky; top:0; z-index:3; background:#fff; text-align:center; padding:9px 4px; border-bottom:1.5px solid #E3ECE7; border-left:1px solid #EEF3F0; }
+.tt-head .dow{ font-size:0.64rem; color:#55685F; text-transform:uppercase; letter-spacing:.03em; }
+.tt-head .dnum{ font-size:0.94rem; font-weight:700; color:#0A2B20; }
+.tt-head.is-today .dnum{ color:var(--emerald-600); }
+.tt-time{ position:sticky; left:0; z-index:2; background:#fff; font-size:0.72rem; color:#55685F; padding:8px 6px; text-align:right; border-top:1px solid #EEF3F0; white-space:nowrap; }
+.tt-cell{ border-top:1px solid #EEF3F0; border-left:1px solid #EEF3F0; min-height:38px; display:flex; align-items:center; justify-content:center; font-size:0.64rem; font-weight:700; color:var(--emerald-700); background:#fff; cursor:pointer; transition:background .15s ease; padding:2px; text-align:center; }
+.tt-cell:hover:not(.is-full):not(.is-selected){ background:#F2FBF7; }
+.tt-cell.is-partial{ background:#F7FCFA; }
+.tt-cell.is-full{ background:#E7EAEC; color:#98A29C; cursor:not-allowed; }
+.tt-cell.is-selected{ background:var(--emerald-600); color:#fff; }
+
+.selected-info{ margin-top:14px; display:none; align-items:center; justify-content:space-between; gap:10px; background:var(--bg-2); border-radius:var(--radius-sm); padding:12px 16px; font-size:0.86rem; font-weight:600; color:var(--emerald-700); }
+.selected-info.show{ display:flex; }
+.selected-info button{ border:none; background:transparent; color:#8A9C93; font-size:0.78rem; font-weight:700; cursor:pointer; }
+.selected-info button:hover{ color:#C43E38; }
+
+.ustoza-options{ display:flex; flex-wrap:wrap; gap:10px; margin:4px 0 4px; }
+.ustoza-chip{ padding:11px 18px; border-radius:999px; border:1.6px solid #DCE6E1; font-size:0.86rem; font-weight:600; color:#0A2B20; cursor:pointer; transition:background .16s ease, border-color .16s ease, color .16s ease, transform .16s ease; background:#fff; user-select:none; }
+.ustoza-chip:hover:not(.is-taken):not(.is-selected){ border-color:var(--emerald-600); background:var(--option-hover); transform:translateY(-1px); }
+.ustoza-chip.is-selected{ background:var(--emerald-600); border-color:var(--emerald-700); color:#fff; }
+.ustoza-chip.is-taken{ opacity:0.4; cursor:not-allowed; text-decoration:line-through; }
+.field.invalid #ustozaOptions{ outline:1.5px solid #E0554F; outline-offset:6px; border-radius:14px; }
+
+.submit-btn{ position:relative; width:100%; padding:17px; margin-top:26px; border:none; border-radius:999px; background:var(--ink-950); color:var(--white); font-family:'Inter', sans-serif; font-size:1rem; font-weight:600; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:9px; transition:background .25s ease, transform .2s ease, box-shadow .25s ease; box-shadow:0 16px 34px rgba(4,35,26,0.22); }
+.submit-btn:hover{ background:var(--emerald-600); transform:translateY(-2px); box-shadow:0 20px 40px rgba(15,138,95,0.34); }
+.btn-arrow{ display:flex; transition:transform .25s ease; }
+.submit-btn:hover .btn-arrow{ transform:translateX(4px); }
+.submit-btn:active{ transform:translateY(0) scale(0.99); }
+.submit-btn:disabled{ cursor:not-allowed; opacity:0.75; transform:none; }
+.btn-spinner{ display:none; width:17px; height:17px; border:2.5px solid rgba(255,255,255,0.35); border-top-color:var(--white); border-radius:50%; animation:spin .7s linear infinite; }
+.submit-btn.loading .btn-spinner{ display:inline-block; }
+.submit-btn.loading .btn-arrow{ display:none; }
+@keyframes spin{ to{ transform:rotate(360deg); } }
+
+.inline-error{ display:none; margin-top:16px; padding:12px 14px; border-radius:var(--radius-sm); background:#FDEDEC; color:#C43E38; font-size:0.85rem; font-weight:600; text-align:center; }
+.inline-error.show{ display:block; animation:shake .35s ease; }
+@keyframes shake{ 0%,100%{ transform:translateX(0); } 25%{ transform:translateX(-5px); } 75%{ transform:translateX(5px); } }
+
+.modal-overlay{ position:fixed; inset:0; background:rgba(4,35,26,0.55); backdrop-filter:blur(6px); display:flex; align-items:center; justify-content:center; padding:20px; opacity:0; visibility:hidden; transition:opacity .3s ease, visibility .3s ease; z-index:200; }
+.modal-overlay.show{ opacity:1; visibility:visible; }
+.modal{ position:relative; background:var(--white); border-radius:var(--radius-lg); padding:44px 38px 36px; max-width:420px; width:100%; text-align:center; box-shadow:0 40px 100px rgba(2,20,14,0.35); transform:scale(0.9) translateY(16px); transition:transform .35s cubic-bezier(.2,.9,.3,1.2); }
+.modal-overlay.show .modal{ transform:scale(1) translateY(0); }
+.modal-close{ position:absolute; top:16px; right:18px; border:none; background:transparent; font-size:1.5rem; line-height:1; color:#AAB8B1; cursor:pointer; }
+.modal-close:hover{ color:var(--emerald-600); }
+.modal-check{ width:76px; height:76px; margin:0 auto 22px; }
+.modal-check svg{ width:100%; height:100%; }
+.check-circle{ fill:none; stroke:var(--emerald-600); stroke-width:2.5; stroke-dasharray:151; stroke-dashoffset:151; animation:circleDraw .6s ease forwards; }
+.check-mark{ stroke:var(--emerald-600); stroke-width:3.4; stroke-linecap:round; stroke-linejoin:round; stroke-dasharray:36; stroke-dashoffset:36; animation:checkDraw .4s ease forwards .55s; }
+@keyframes circleDraw{ to{ stroke-dashoffset:0; } }
+@keyframes checkDraw{ to{ stroke-dashoffset:0; } }
+.modal h3{ font-family:'Bricolage Grotesque', sans-serif; font-size:1.5rem; font-weight:700; color:#0A2B20; margin-bottom:10px; }
+.modal p{ font-size:0.94rem; color:#55685F; line-height:1.6; margin-bottom:26px; }
+.modal-btn{ padding:13px 32px; border:none; border-radius:999px; background:var(--ink-950); color:var(--white); font-weight:600; font-size:0.92rem; cursor:pointer; }
+.modal-btn:hover{ background:var(--emerald-600); }
+
+.toast{ position:fixed; top:26px; right:26px; display:flex; align-items:center; gap:12px; background:var(--white); border-left:5px solid #E0554F; padding:16px 20px; border-radius:var(--radius-sm); box-shadow:0 20px 45px rgba(2,20,14,0.3); max-width:340px; transform:translateX(120%); opacity:0; transition:transform .4s cubic-bezier(.2,.8,.2,1), opacity .4s; z-index:300; }
+.toast.show{ transform:translateX(0); opacity:1; }
+.toast-ico{ width:24px; height:24px; flex-shrink:0; border-radius:50%; background:#E0554F; color:var(--white); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:0.82rem; }
+.toast-text{ font-size:0.86rem; font-weight:600; color:#0A2B20; }
+
+@media (max-width: 720px){ .register__hero{ padding-top:52px; padding-bottom:36px; } }
+@media (max-width: 560px){
+  .wrap{ padding:0 18px; }
+  .register__top{ padding-top:24px; }
+  .form-card{ padding:28px 20px 30px; border-radius:var(--radius-md); }
+  .form-row{ grid-template-columns:1fr; gap:0; }
+  .title{ font-size:2rem; }
+  .toast{ left:16px; right:16px; max-width:none; top:16px; }
+  .eyebrow{ display:none; }
+}
+@media (prefers-reduced-motion: reduce){ *{ animation:none !important; transition:none !important; } }
+</style>
+</head>
+<body>
+
+<section class="register" id="royxat">
+  <div class="aurora" aria-hidden="true"><span class="blob b1"></span><span class="blob b2"></span><span class="blob b3"></span></div>
+  <div class="particles" aria-hidden="true">
+    <span class="p sq"></span><span class="p sq"></span><span class="p sq"></span><span class="p sq"></span>
+    <span class="p dot"></span><span class="p dot"></span><span class="p sq"></span><span class="p dot"></span>
+  </div>
+
+  <div class="register__top wrap">
+    <div class="brand">
+      <img class="brand__mark" src="logo-mark.png" alt="Zin-Nur Akademiyasi">
+      <span class="brand__name">ZIN-NUR<em>akademiyasi</em></span>
+    </div>
+    <div class="top-controls">
+      <span class="eyebrow" data-i18n="eyebrow">Bepul konsultatsiya</span>
+      <div class="lang-switch" role="group" aria-label="Til / Язык / Language">
+        <button type="button" class="lang-btn active" data-lang="uz">UZ</button>
+        <button type="button" class="lang-btn" data-lang="ru">RU</button>
+        <button type="button" class="lang-btn" data-lang="en">EN</button>
+      </div>
+      <button type="button" class="theme-toggle" id="themeToggle" aria-label="Rejimni almashtirish">
+        <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+        <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="wrap register__hero">
+    <h1 class="title">
+      <span data-i18n="titleLine1">Yordamchi ustoz bilan</span><br>
+      <span class="title-accent" data-i18n="titleAccent">  mashg'ulotlar</span> <span data-i18n="titleLine2">yoziling</span>
+    </h1>
+ 
+  </div>
+
+  <div class="wrap">
+    <div class="form-card">
+      <form id="registerForm" novalidate>
+
+        <div class="step-label"><span class="step-num">1</span><span data-i18n="stepDetails">Ma'lumotlaringiz</span></div>
+        <div class="form-row">
+  <div class="field" data-field="ism">
+    <input type="text" id="ism" name="ism" placeholder=" " autocomplete="given-name" required>
+    <label for="ism"><span data-i18n="labelIsm">Ism</span><span class="required">*</span></label>
+    <span class="error-text" data-i18n="errIsm">Ismingizni kiriting</span>
+  </div>
+  <div class="field" data-field="familiya">
+    <input type="text" id="familiya" name="familiya" placeholder=" " autocomplete="family-name" required>
+    <label for="familiya"><span data-i18n="labelFamiliya">Familiya</span><span class="required">*</span></label>
+    <span class="error-text" data-i18n="errFamiliya">Familiyangizni kiriting</span>
+  </div>
+</div>
+
+<div class="field" data-field="telefon">
+  <input type="tel" id="telefon" name="telefon" placeholder=" " autocomplete="tel" required>
+  <label for="telefon"><span data-i18n="labelTelefon">Telefon raqami</span><span class="required">*</span></label>
+  <span class="error-text" data-i18n="errTelefon">To'g'ri telefon raqam kiriting</span>
+</div>
+
+        <div class="step-label"><span class="step-num">2</span><span data-i18n="stepCourse">Kursni tanlang</span></div>
+        <div class="field field--dd" data-field="kurs" data-dd="kurs">
+          <button type="button" class="dd__trigger" data-dd-trigger="kurs">
+            <span class="dd__value is-placeholder" data-dd-value="kurs">&nbsp;</span>
+          </button>
+          <svg class="dd__chevron" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <div class="dd__panel" data-dd-panel="kurs" role="listbox"></div>
+          <input type="hidden" name="kurs" id="kurs">
+          <label><span data-i18n="labelKurs">Kurs</span><span class="required">*</span></label>
+          <span class="error-text" data-i18n="errKurs">Iltimos, kursni tanlang</span>
+        </div>
+
+        <div class="step-label"><span class="step-num">3</span><span data-i18n="stepSlot">Sana va vaqtni tanlang</span></div>
+        <div class="timetable-block" data-field="slot">
+          <div class="timetable-placeholder" id="ttPlaceholder" data-i18n="ttPlaceholder">Avval kursni tanlang</div>
+
+          <div id="ttWrapper" style="display:none;">
+            <div class="week-nav">
+              <button type="button" class="week-nav__btn" id="weekPrev">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <span data-i18n="weekPrev">Oldingi</span>
+              </button>
+              <span class="week-nav__label" id="weekLabel"></span>
+              <button type="button" class="week-nav__btn" id="weekNext">
+                <span data-i18n="weekNext">Keyingi</span>
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+            </div>
+
+            <div class="legend">
+              <span><i class="lg-free"></i><span data-i18n="lgFree">Bo'sh</span></span>
+              <span><i class="lg-partial"></i><span data-i18n="lgPartial">Qisman band</span></span>
+              <span><i class="lg-full"></i><span data-i18n="lgFull">To'liq band</span></span>
+              <span><i class="lg-selected"></i><span data-i18n="lgSelected">Tanlangan</span></span>
+            </div>
+
+            <div class="tt-scroll">
+              <div class="tt-grid" id="ttGrid"></div>
+            </div>
+
+            <div class="selected-info" id="selectedInfo">
+              <span id="selectedInfoText"></span>
+              <button type="button" id="clearSlot" data-i18n="clearSlot">Bekor qilish ✕</button>
+            </div>
+          </div>
+
+          <input type="hidden" name="sana" id="sana">
+          <input type="hidden" name="vaqt" id="vaqt">
+          
+        </div>
+
+        <div class="step-label" id="ustozaStepLabel" style="display:none;"><span class="step-num">4</span><span data-i18n="stepUstoza">Ustozani tanlang</span></div>
+        <div class="field" data-field="ustoza" id="ustozaBlock" style="display:none;">
+          <div class="ustoza-options" id="ustozaOptions"></div>
+          <input type="hidden" name="ustoza" id="ustoza">
+          <span class="error-text" data-i18n="errUstoza">Iltimos, ustozani tanlang</span>
+        </div>
+
+        <button type="submit" class="submit-btn" id="submitBtn">
+          <span class="btn-text" data-i18n="btnSubmit">Yuborish</span>
+          <span class="btn-arrow" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          <span class="btn-spinner" aria-hidden="true"></span>
+        </button>
+
+        <div class="inline-error" id="inlineError" role="alert"></div>
+      </form>
+    </div>
+  </div>
+</section>
+
+<div class="modal-overlay" id="successModal" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="successTitle">
+    <button class="modal-close" id="modalClose" aria-label="Yopish">&times;</button>
+    <div class="modal-check" aria-hidden="true">
+      <svg viewBox="0 0 52 52"><circle class="check-circle" cx="26" cy="26" r="24"/><path class="check-mark" fill="none" d="M14 27l7 7 16-16"/></svg>
+    </div>
+    <h3 id="successTitle" data-i18n="modalTitle">Rahmat!</h3>
+    <p data-i18n="modalText">Rahmat! Siz muvaffaqiyatli ro'yxatdan o'tdingiz. Tez orada yordamchi ustozimiz siz bilan bog'lanadi.</p>
+    <button class="modal-btn" id="modalOkBtn" data-i18n="modalBtn">Tushunarli</button>
+  </div>
+</div>
+
+<div class="toast" id="errorToast" role="alert" aria-live="assertive">
+  <span class="toast-ico" aria-hidden="true">!</span>
+  <span class="toast-text" id="toastText">Xatolik yuz berdi. Qaytadan urinib ko'ring.</span>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
