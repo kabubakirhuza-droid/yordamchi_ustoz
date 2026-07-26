@@ -104,7 +104,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let selectedUstoza = null;
   let teacherCounts = {};
-  let teacherCapacity = 4;
+  let teacherCapacity = 1;
   let ustozaRequestId = 0;
 
   const translations = {
@@ -515,11 +515,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const data = await res.json();
       return {
         counts: (data && typeof data.counts === 'object' && data.counts) ? data.counts : {},
-        capacity: (data && typeof data.capacity === 'number' && data.capacity > 0) ? data.capacity : 4
+        capacity: (data && typeof data.capacity === 'number' && data.capacity > 0) ? data.capacity : 1
       };
     } catch (err) {
       console.warn("O'qituvchilar yuklashda xatolik:", err);
-      return { counts: {}, capacity: 4 };
+      return { counts: {}, capacity: 1 };
     }
   }
 
