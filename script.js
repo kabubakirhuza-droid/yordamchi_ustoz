@@ -1,4 +1,4 @@
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxchn5ex6zRB6gfqo4_HzZ9k5-czCu2TPbOkEJwvGYZ_qW2rC234BciyxNig_nuU1f_/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyCiT0-u7NqvJ9AYxyA-bO8hPVNdV4ef9A3vtgQPLKHuU6KwOHsZeK-8WTEpt2QT2jf_Q/exec";
 
 function buildSlots(startHour, startMin, endHour, endMin, stepMin){
   const slots = [];
@@ -21,9 +21,11 @@ const COURSES = {
 };
 
 const COURSE_TEACHERS = {
-  "Arab tili - Harf": ["Nargiza Ustoza", "Fazilat Ustoza", "Kamola Ustoza", "Risolat Ustoza"],
-  "Arab tili - Qoida": ["Nargiza Ustoza", "Fazilat Ustoza", "Kamola Ustoza", "Risolat Ustoza"],
-  "Arab tili - Amaliyot": ["Nargiza Ustoza", "Fazilat Ustoza", "Kamola Ustoza", "Risolat Ustoza"]
+  "Arab tili - Harf": ["Fotima Ustoza", "Mubina Ustoza", "Madina Ustoza", "Samira ustoza", "Saida Ustoza"],
+  "Arab tili - Qoida": ["Fotima Ustoza", "Mubina Ustoza", "Madina Ustoza", "Samira ustoza", "Saida Ustoza"],
+  "Arab tili - Amaliyot": ["Fotima Ustoza", "Mubina Ustoza", "Madina Ustoza", "Samira ustoza", "Saida Ustoza"],
+  "Arab tili grammatikasi": ["Muslima Ustoza"],
+  "Ingliz tili": ["Mohinur Ustoza"]
 };
 const TEACHER_COURSES = Object.keys(COURSE_TEACHERS);
 
