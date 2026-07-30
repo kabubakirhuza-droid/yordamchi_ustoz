@@ -21,11 +21,24 @@ const COURSES = {
 };
 
 const COURSE_TEACHERS = {
-  "Arab tili - Harf": ["Fotima Ustoza", "Mubina Ustoza", "Madina Ustoza", "Samira ustoza", "Saida Ustoza"],
-  "Arab tili - Qoida": ["Fotima Ustoza", "Mubina Ustoza", "Madina Ustoza", "Samira ustoza", "Saida Ustoza"],
-  "Arab tili - Amaliyot": ["Fotima Ustoza", "Mubina Ustoza", "Madina Ustoza", "Samira ustoza", "Saida Ustoza"],
-  "Arab tili grammatikasi": ["Muslima Ustoza"],
-  "Ingliz tili": ["Mohinur Ustoza"]
+  "Arab tili - Harf": [
+    "Nargiza Ustoza",
+    "Fazilat Ustoza",
+    "Kamola Ustoza",
+    "Risolat Ustoza"
+  ],
+  "Arab tili - Qoida": [
+    "Nargiza Ustoza",
+    "Fazilat Ustoza",
+    "Kamola Ustoza",
+    "Risolat Ustoza"
+  ],
+  "Arab tili - Amaliyot": [
+    "Nargiza Ustoza",
+    "Fazilat Ustoza",
+    "Kamola Ustoza",
+    "Risolat Ustoza"
+  ]
 };
 const TEACHER_COURSES = Object.keys(COURSE_TEACHERS);
 
