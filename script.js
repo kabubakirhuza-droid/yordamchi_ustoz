@@ -1,4 +1,4 @@
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyCiT0-u7NqvJ9AYxyA-bO8hPVNdV4ef9A3vtgQPLKHuU6KwOHsZeK-8WTEpt2QT2jf_Q/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyc8N0QyY9b3AI_BCGkdWeU7URxvjLrb-XJdsLQRwRYzJhwDtNFPb9vSaBfELL4uzfZ/exec";
 
 function buildSlots(startHour, startMin, endHour, endMin, stepMin){
   const slots = [];
