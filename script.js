@@ -42,6 +42,47 @@ const COURSE_TEACHERS = {
 };
 const TEACHER_COURSES = Object.keys(COURSE_TEACHERS);
 
+// --- Ish jadvali (ichki, saytda ko'rsatilmaydi) ---
+// days: JS Date.getDay() bo'yicha: 0=Yak,1=Dush,2=Sesh,3=Chor,4=Pay,5=Jum,6=Shan
+const WEEKDAYS_MON_FRI = [1,2,3,4,5];
+const WEEKEND_SAT_SUN = [0,6];
+
+const TEACHER_SCHEDULE = {
+  "Nargiza Ustoza": [
+    { days: WEEKDAYS_MON_FRI, start: "08:00", end: "12:00" }
+  ],
+  "Fazilat Ustoza": [
+    { days: WEEKDAYS_MON_FRI, start: "09:00", end: "13:00" }
+  ],
+  "Kamola Ustoza": [
+    { days: WEEKDAYS_MON_FRI, start: "09:00", end: "13:00" }
+  ],
+  "Risolat Ustoza": [
+    { days: WEEKDAYS_MON_FRI, start: "14:00", end: "17:00" },
+    { days: WEEKEND_SAT_SUN,  start: "09:00", end: "17:00" }
+  ]
+};
+
+function timeToMinutes(t){
+  const [h, m] = t.split(':').map(Number);
+  return h * 60 + m;
+}
+
+// Ustoza tanlangan sana (Date) va vaqt ("HH:MM") da ishlaydimi, shuni tekshiradi.
+function isTeacherAvailable(name, date, time){
+  const schedule = TEACHER_SCHEDULE[name];
+  if (!schedule) return true; // jadval belgilanmagan bo'lsa — cheklamaymiz
+  if (!date || !time) return false;
+  const dow = date.getDay();
+  const mins = timeToMinutes(time);
+  return schedule.some((block) => {
+    if (block.days.indexOf(dow) === -1) return false;
+    const startMins = timeToMinutes(block.start);
+    const endMins = timeToMinutes(block.end);
+    return mins >= startMins && mins < endMins;
+  });
+}
+
 const DOW_FULL = {
   uz: ["Yakshanba","Dushanba","Seshanba","Chorshanba","Payshanba","Juma","Shanba"],
   ru: ["Воскресенье","Понедельник","Вторник","Среда","Четверг","Пятница","Суббота"],
@@ -473,13 +514,23 @@ document.addEventListener('DOMContentLoaded', () => {
     return TEACHER_COURSES.indexOf(selectedKurs) !== -1;
   }
 
+  // Tanlangan sana/vaqtda haqiqatda ishlaydigan ustozalar ro'yxati.
+  // Bu filtr saytda ko'rinmaydi — faqat mos keladigan ustozalar chip
+  // sifatida chiqadi, ishlamaydiganlari umuman ro'yxatga tushmaydi.
+  function getAvailableTeachersForSlot(){
+    if (!selectedDate || !selectedTime) return [];
+    return (COURSE_TEACHERS[selectedKurs] || []).filter((name) =>
+      isTeacherAvailable(name, selectedDate, selectedTime)
+    );
+  }
+
   // --- Ustoza chips: rendering is purely visual now. Clicks are handled by a
   // single delegated listener attached once below, so a chip always reacts
   // to a click even while data is still being re-rendered/refreshed. ---
   function renderUstozaOptions(){
     if (!ustozaOptions) return;
     ustozaOptions.innerHTML = '';
-    (COURSE_TEACHERS[selectedKurs] || []).forEach((name) => {
+    getAvailableTeachersForSlot().forEach((name) => {
       const count = teacherCounts[name] || 0;
       const isTaken = count >= teacherCapacity;
       const isSelected = selectedUstoza === name;
