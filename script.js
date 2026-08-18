@@ -20,23 +20,32 @@ const COURSES = {
   "Nurli Bolajon":          { slots: buildSlots(14,0,16,0,30), capacity: 1 }
 };
 
+// Ba'zi kurslar faqat muayyan kunlarda mavjud bo'lishi mumkin.
+// 0=Yak,1=Dush,2=Sesh,3=Chor,4=Pay,5=Jum,6=Shan
+const COURSE_DAYS = {
+  "Nurli Bolajon": [4] // faqat Payshanba
+};
+
+function isCourseDayAllowed(kurs, date){
+  const days = COURSE_DAYS[kurs];
+  if (!days) return true;
+  return days.indexOf(date.getDay()) !== -1;
+}
+
 const COURSE_TEACHERS = {
   "Arab tili - Harf": [
     "Nargiza Ustoza",
     "Fazilat Ustoza",
-    "Kamola Ustoza",
     "Risolat Ustoza"
   ],
   "Arab tili - Qoida": [
     "Nargiza Ustoza",
     "Fazilat Ustoza",
-    "Kamola Ustoza",
     "Risolat Ustoza"
   ],
   "Arab tili - Amaliyot": [
     "Nargiza Ustoza",
     "Fazilat Ustoza",
-    "Kamola Ustoza",
     "Risolat Ustoza"
   ]
 };
@@ -52,9 +61,6 @@ const TEACHER_SCHEDULE = {
     { days: WEEKDAYS_MON_FRI, start: "08:00", end: "12:00" }
   ],
   "Fazilat Ustoza": [
-    { days: WEEKDAYS_MON_FRI, start: "09:00", end: "13:00" }
-  ],
-  "Kamola Ustoza": [
     { days: WEEKDAYS_MON_FRI, start: "09:00", end: "13:00" }
   ],
   "Risolat Ustoza": [
@@ -411,8 +417,9 @@ document.addEventListener('DOMContentLoaded', () => {
     ttGrid.appendChild(corner);
 
     dates.forEach((d) => {
+      const dayAllowedForHeader = isCourseDayAllowed(selectedKurs, d);
       const head = document.createElement('div');
-      head.className = 'tt-head' + (sameDate(d, today) ? ' is-today' : '');
+      head.className = 'tt-head' + (sameDate(d, today) ? ' is-today' : '') + (!dayAllowedForHeader ? ' is-blocked' : '');
       head.innerHTML = `<div class="dow">${DOW_SHORT[currentLang][d.getDay()]}</div><div class="dnum">${formatDateShort(d)}</div>`;
       ttGrid.appendChild(head);
     });
@@ -425,10 +432,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
       dates.forEach((d) => {
         const dateVal = formatDateValue(d);
+        const dayAllowed = isCourseDayAllowed(selectedKurs, d);
         const booked = (availabilityMap[dateVal] && availabilityMap[dateVal][time]) || 0;
         const remaining = capacity - booked;
-        const isFull = remaining <= 0;
-        const isPartial = !isFull && remaining < capacity && capacity > 1;
+        const isFull = !dayAllowed || remaining <= 0;
+        const isPartial = dayAllowed && !isFull && remaining < capacity && capacity > 1;
         const isSelected = selectedDate && sameDate(selectedDate, d) && selectedTime === time;
 
         const cell = document.createElement('div');
@@ -436,6 +444,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (isSelected){
           cell.innerHTML = '✓';
+        } else if (!dayAllowed){
+          cell.textContent = '';
         } else if (isFull){
           cell.textContent = t('fullTag');
         } else if (isPartial){
