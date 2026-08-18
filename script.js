@@ -36,20 +36,20 @@ const COURSE_TEACHERS = {
   "Arab tili - Harf": [
     "Nargiza Ustoza",
     "Fazilat Ustoza",
-    "Muslima Ustoza",
     "Risolat Ustoza"
   ],
   "Arab tili - Qoida": [
     "Nargiza Ustoza",
     "Fazilat Ustoza",
-    "Muslima Ustoza",
     "Risolat Ustoza"
   ],
   "Arab tili - Amaliyot": [
     "Nargiza Ustoza",
     "Fazilat Ustoza",
-    "Muslima Ustoza",
     "Risolat Ustoza"
+  ],
+  "Nurli Bolajon": [
+    "Muslima Ustoza"
   ]
 };
 const TEACHER_COURSES = Object.keys(COURSE_TEACHERS);
