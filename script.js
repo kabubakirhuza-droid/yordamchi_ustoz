@@ -17,7 +17,7 @@ const COURSES = {
   "Arab tili - Amaliyot":   { slots: buildSlots(9,0,17,0,30), capacity: 4 },
   "Arab tili grammatikasi": { slots: buildSlots(9,0,17,0,30), capacity: 4 },
   "Ingliz tili":            { slots: buildSlots(9,0,12,0,30), capacity: 1 },
-  "Nurli Bolajon":          { slots: buildSlots(14,0,16,0,30), capacity: 1 }
+  "Nurli Bolajon":          { slots: buildSlots(13,0,17,0,30), capacity: 1 }
 };
 
 // Ba'zi kurslar faqat muayyan kunlarda mavjud bo'lishi mumkin.
@@ -36,16 +36,19 @@ const COURSE_TEACHERS = {
   "Arab tili - Harf": [
     "Nargiza Ustoza",
     "Fazilat Ustoza",
+    "Muslima Ustoza",
     "Risolat Ustoza"
   ],
   "Arab tili - Qoida": [
     "Nargiza Ustoza",
     "Fazilat Ustoza",
+    "Muslima Ustoza",
     "Risolat Ustoza"
   ],
   "Arab tili - Amaliyot": [
     "Nargiza Ustoza",
     "Fazilat Ustoza",
+    "Muslima Ustoza",
     "Risolat Ustoza"
   ]
 };
@@ -62,6 +65,9 @@ const TEACHER_SCHEDULE = {
   ],
   "Fazilat Ustoza": [
     { days: WEEKDAYS_MON_FRI, start: "09:00", end: "13:00" }
+  ],
+  "Muslima Ustoza": [
+    { days: WEEKDAYS_MON_FRI, start: "13:00", end: "17:00" }
   ],
   "Risolat Ustoza": [
     { days: WEEKDAYS_MON_FRI, start: "14:00", end: "17:00" },
