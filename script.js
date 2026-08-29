@@ -25,6 +25,17 @@ const COURSE_EXCLUDED_DAYS = {
   "Nurli Bolajon": [0, 6] // Nurli Bolajon uchun Shanba va Yakshanba olib tashlandi
 };
 
+// Barcha kurslar uchun umumiy bayram/dam olish kunlari (aniq sanalar, "DD.MM.YYYY" formatida).
+// Bu sanalarda BARCHA jadvallarda (har qanday kurs, har qanday ustoza) vaqt tanlab bo'lmaydi.
+const HOLIDAY_DATES = [
+  "31.08.2026", // Mustaqillik kuni arafasi - dam olish
+  "01.09.2026"  // Mustaqillik kuni
+];
+
+function isHolidayDate(date){
+  return HOLIDAY_DATES.indexOf(formatDateValue(date)) !== -1;
+}
+
 const COURSE_TEACHERS = {
   "Arab tili - Harf": ["Fotima Ustoza", "Mubina Ustoza", "Madina Ustoza", "Samira ustoza", "Saida Ustoza"],
   "Arab tili - Qoida": ["Fotima Ustoza", "Mubina Ustoza", "Madina Ustoza", "Samira ustoza", "Saida Ustoza"],
@@ -89,6 +100,19 @@ function formatDateShort(d){
 }
 function sameDate(a, b){
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
+function injectHolidayStyles(){
+  if (document.getElementById('znHolidayStyles')) return;
+  const style = document.createElement('style');
+  style.id = 'znHolidayStyles';
+  style.textContent = `
+    .tt-cell.is-holiday{ background:#FDEDEC !important; color:#C43E38 !important; cursor:not-allowed !important; }
+    .tt-head.is-holiday{ background:#FDEDEC !important; }
+    .tt-head.is-holiday .dnum{ color:#C43E38 !important; }
+    .tt-head.is-holiday .dow{ color:#C43E38 !important; }
+  `;
+  document.head.appendChild(style);
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -177,6 +201,8 @@ document.addEventListener('DOMContentLoaded', () => {
       errSlot: "Iltimos, jadvaldan bo'sh vaqt tanlang",
       errUstoza: "Iltimos, ustozani tanlang",
       noUstozaAvailable: "Bu kun/vaqtda ishlaydigan ustoza yo'q. Iltimos, boshqa vaqtni tanlang.",
+      holidayTag: "Bayram",
+      holidayLabel: "Mustaqillik kuni munosabati bilan dam olish kuni",
       btnSubmit: "Yuborish",
       modalTitle: "Rahmat!",
       modalText: "Rahmat! Siz muvaffaqiyatli ro'yxatdan o'tdingiz. Iltimos belgilangan vaqtdan kechga qolmang.",
@@ -221,6 +247,8 @@ document.addEventListener('DOMContentLoaded', () => {
       errSlot: "Пожалуйста, выберите свободное время в расписании",
       errUstoza: "Пожалуйста, выберите преподавателя",
       noUstozaAvailable: "На этот день/время нет работающего преподавателя. Пожалуйста, выберите другое время.",
+      holidayTag: "Праздник",
+      holidayLabel: "Выходной день в честь Дня независимости",
       btnSubmit: "Отправить",
       modalTitle: "Спасибо!",
       modalText: "Спасибо! Вы успешно записались. Наш помощник-преподаватель скоро свяжется с вами.",
@@ -265,6 +293,8 @@ document.addEventListener('DOMContentLoaded', () => {
       errSlot: "Please pick a free time on the schedule",
       errUstoza: "Please choose a teacher",
       noUstozaAvailable: "No teacher works on this day/time. Please choose another time.",
+      holidayTag: "Holiday",
+      holidayLabel: "Day off for Independence Day",
       btnSubmit: "Submit",
       modalTitle: "Thank you!",
       modalText: "Thank you! You have successfully registered. Our mentor teacher will contact you soon.",
@@ -403,8 +433,10 @@ document.addEventListener('DOMContentLoaded', () => {
     ttGrid.appendChild(corner);
 
     dates.forEach((d) => {
+      const isHoliday = isHolidayDate(d);
       const head = document.createElement('div');
-      head.className = 'tt-head' + (sameDate(d, today) ? ' is-today' : '');
+      head.className = 'tt-head' + (sameDate(d, today) ? ' is-today' : '') + (isHoliday ? ' is-holiday' : '');
+      if (isHoliday) head.title = t('holidayLabel');
       head.innerHTML = `<div class="dow">${DOW_SHORT[currentLang][d.getDay()]}</div><div class="dnum">${formatDateShort(d)}</div>`;
       ttGrid.appendChild(head);
     });
@@ -417,16 +449,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
       dates.forEach((d) => {
         const dateVal = formatDateValue(d);
+        const isHoliday = isHolidayDate(d);
         const booked = (availabilityMap[dateVal] && availabilityMap[dateVal][time]) || 0;
         const remaining = capacity - booked;
-        const isFull = remaining <= 0;
-        const isPartial = !isFull && remaining < capacity && capacity > 1;
-        const isSelected = selectedDate && sameDate(selectedDate, d) && selectedTime === time;
+        const isFull = !isHoliday && remaining <= 0;
+        const isPartial = !isHoliday && !isFull && remaining < capacity && capacity > 1;
+        const isSelected = !isHoliday && selectedDate && sameDate(selectedDate, d) && selectedTime === time;
 
         const cell = document.createElement('div');
-        cell.className = 'tt-cell' + (isFull ? ' is-full' : '') + (isPartial ? ' is-partial' : '') + (isSelected ? ' is-selected' : '');
+        cell.className = 'tt-cell'
+          + (isHoliday ? ' is-holiday' : '')
+          + (isFull ? ' is-full' : '')
+          + (isPartial ? ' is-partial' : '')
+          + (isSelected ? ' is-selected' : '');
 
-        if (isSelected){
+        if (isHoliday){
+          cell.textContent = t('holidayTag');
+          cell.title = t('holidayLabel');
+        } else if (isSelected){
           cell.innerHTML = '✓';
         } else if (isFull){
           cell.textContent = t('fullTag');
@@ -436,7 +476,7 @@ document.addEventListener('DOMContentLoaded', () => {
           cell.textContent = '';
         }
 
-        if (!isFull){
+        if (!isFull && !isHoliday){
           cell.addEventListener('click', () => {
             selectedDate = d;
             selectedTime = time;
@@ -798,4 +838,5 @@ document.addEventListener('DOMContentLoaded', () => {
   buildKursPanel();
   initTheme();
   initLang();
+  injectHolidayStyles();
 });
