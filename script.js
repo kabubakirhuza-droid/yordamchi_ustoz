@@ -1,4 +1,4 @@
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyc8N0QyY9b3AI_BCGkdWeU7URxvjLrb-XJdsLQRwRYzJhwDtNFPb9vSaBfELL4uzfZ/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyCiT0-u7NqvJ9AYxyA-bO8hPVNdV4ef9A3vtgQPLKHuU6KwOHsZeK-8WTEpt2QT2jf_Q/exec";
 
 function buildSlots(startHour, startMin, endHour, endMin, stepMin){
   const slots = [];
@@ -17,82 +17,55 @@ const COURSES = {
   "Arab tili - Amaliyot":   { slots: buildSlots(9,0,17,0,30), capacity: 4 },
   "Arab tili grammatikasi": { slots: buildSlots(9,0,17,0,30), capacity: 4 },
   "Ingliz tili":            { slots: buildSlots(9,0,12,0,30), capacity: 1 },
-  "Nurli Bolajon":          { slots: buildSlots(13,0,17,0,30), capacity: 1 }
+  "Nurli Bolajon":          { slots: buildSlots(14,0,16,0,30), capacity: 1 }
 };
 
-// Ba'zi kurslar faqat muayyan kunlarda mavjud bo'lishi mumkin.
-// 0=Yak,1=Dush,2=Sesh,3=Chor,4=Pay,5=Jum,6=Shan
-const COURSE_DAYS = {
-  "Nurli Bolajon": [4] // faqat Payshanba
+// Kurslar bo'yicha jadvaldan chiqarib tashlanadigan kunlar (0=Yakshanba ... 6=Shanba)
+const COURSE_EXCLUDED_DAYS = {
+  "Nurli Bolajon": [0, 6] // Nurli Bolajon uchun Shanba va Yakshanba olib tashlandi
 };
-
-function isCourseDayAllowed(kurs, date){
-  const days = COURSE_DAYS[kurs];
-  if (!days) return true;
-  return days.indexOf(date.getDay()) !== -1;
-}
 
 const COURSE_TEACHERS = {
-  "Arab tili - Harf": [
-    "Nargiza Ustoza",
-    "Fazilat Ustoza",
-    "Risolat Ustoza"
-  ],
-  "Arab tili - Qoida": [
-    "Nargiza Ustoza",
-    "Fazilat Ustoza",
-    "Risolat Ustoza"
-  ],
-  "Arab tili - Amaliyot": [
-    "Nargiza Ustoza",
-    "Fazilat Ustoza",
-    "Risolat Ustoza"
-  ],
-  "Nurli Bolajon": [
-    "Muslima Ustoza"
-  ]
+  "Arab tili - Harf": ["Fotima Ustoza", "Mubina Ustoza", "Madina Ustoza", "Samira ustoza", "Saida Ustoza"],
+  "Arab tili - Qoida": ["Fotima Ustoza", "Mubina Ustoza", "Madina Ustoza", "Samira ustoza", "Saida Ustoza"],
+  "Arab tili - Amaliyot": ["Fotima Ustoza", "Mubina Ustoza", "Madina Ustoza", "Samira ustoza", "Saida Ustoza"],
+  "Arab tili grammatikasi": ["Muslima Ustoza"],
+  "Ingliz tili": ["Mohinur Ustoza"]
 };
 const TEACHER_COURSES = Object.keys(COURSE_TEACHERS);
 
-// --- Ish jadvali (ichki, saytda ko'rsatilmaydi) ---
-// days: JS Date.getDay() bo'yicha: 0=Yak,1=Dush,2=Sesh,3=Chor,4=Pay,5=Jum,6=Shan
-const WEEKDAYS_MON_FRI = [1,2,3,4,5];
-const WEEKEND_SAT_SUN = [0,6];
-
+// --- Ustozalarning haftalik ish jadvali ---
+// offDays: shu kunlari ustoza dam oladi (0=Yakshanba,1=Dushanba,2=Seshanba,3=Chorshanba,4=Payshanba,5=Juma,6=Shanba)
+// start / end: ish vaqti oralig'i (shu oraliqdan tashqaridagi vaqt tanlansa, ustoza ro'yxatda chiqmaydi)
+// Ro'yxatda bo'lmagan ustoza (masalan Mubina Ustoza, Mohinur Ustoza) uchun cheklov yo'q deb hisoblanadi —
+// ular har doim (kurs slotlari doirasida) ko'rinadi.
 const TEACHER_SCHEDULE = {
-  "Nargiza Ustoza": [
-    { days: WEEKDAYS_MON_FRI, start: "08:00", end: "12:00" }
-  ],
-  "Fazilat Ustoza": [
-    { days: WEEKDAYS_MON_FRI, start: "09:00", end: "13:00" }
-  ],
-  "Muslima Ustoza": [
-    { days: WEEKDAYS_MON_FRI, start: "13:00", end: "17:00" }
-  ],
-  "Risolat Ustoza": [
-    { days: WEEKDAYS_MON_FRI, start: "14:00", end: "17:00" },
-    { days: WEEKEND_SAT_SUN,  start: "09:00", end: "17:00" }
-  ]
+  "Muslima Ustoza": { offDays: [0],    start: "09:00", end: "17:00" }, // Yakshanba dam olish, 9:00-17:00
+  "Saida Ustoza":    { offDays: [4],    start: "09:00", end: "12:00" }, // Payshanba dam olish, qolgan kunlar 9:00-12:00
+  "Samira ustoza":   { offDays: [4],    start: "09:00", end: "17:00" }, // Payshanba dam olish, 9:00-17:00
+  "Fotima Ustoza":   { offDays: [0],    start: "08:00", end: "17:00" }, // Yakshanba dam olish, 8:00-17:00
+  "Madina Ustoza":   { offDays: [0, 6], start: "08:00", end: "12:00" }  // Shanba, Yakshanba dam olish, 8:00-12:00
 };
 
-function timeToMinutes(t){
-  const [h, m] = t.split(':').map(Number);
+function timeToMinutes(str){
+  const parts = String(str).split(':');
+  const h = parseInt(parts[0], 10) || 0;
+  const m = parseInt(parts[1], 10) || 0;
   return h * 60 + m;
 }
 
-// Ustoza tanlangan sana (Date) va vaqt ("HH:MM") da ishlaydimi, shuni tekshiradi.
-function isTeacherAvailable(name, date, time){
+// Berilgan sana (Date obyekti) va vaqt ("HH:MM") uchun ustoza ishlaydimi-yo'qmi tekshiradi.
+function isTeacherScheduled(name, date, time){
   const schedule = TEACHER_SCHEDULE[name];
-  if (!schedule) return true; // jadval belgilanmagan bo'lsa — cheklamaymiz
-  if (!date || !time) return false;
+  if (!schedule) return true; // jadval belgilanmagan ustozalar uchun cheklov yo'q
+  if (!date) return true;
   const dow = date.getDay();
-  const mins = timeToMinutes(time);
-  return schedule.some((block) => {
-    if (block.days.indexOf(dow) === -1) return false;
-    const startMins = timeToMinutes(block.start);
-    const endMins = timeToMinutes(block.end);
-    return mins >= startMins && mins < endMins;
-  });
+  if (schedule.offDays && schedule.offDays.indexOf(dow) !== -1) return false;
+  if (time && schedule.start && schedule.end){
+    const tm = timeToMinutes(time);
+    if (tm < timeToMinutes(schedule.start) || tm > timeToMinutes(schedule.end)) return false;
+  }
+  return true;
 }
 
 const DOW_FULL = {
@@ -172,7 +145,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let selectedUstoza = null;
   let teacherCounts = {};
-  let teacherCapacity = 1;
+  let teacherCapacity = 4;
   let ustozaRequestId = 0;
 
   const translations = {
@@ -203,6 +176,7 @@ document.addEventListener('DOMContentLoaded', () => {
       labelKurs: "Kurs", errKurs: "Iltimos, kursni tanlang",
       errSlot: "Iltimos, jadvaldan bo'sh vaqt tanlang",
       errUstoza: "Iltimos, ustozani tanlang",
+      noUstozaAvailable: "Bu kun/vaqtda ishlaydigan ustoza yo'q. Iltimos, boshqa vaqtni tanlang.",
       btnSubmit: "Yuborish",
       modalTitle: "Rahmat!",
       modalText: "Rahmat! Siz muvaffaqiyatli ro'yxatdan o'tdingiz. Iltimos belgilangan vaqtdan kechga qolmang.",
@@ -246,6 +220,7 @@ document.addEventListener('DOMContentLoaded', () => {
       labelKurs: "Курс", errKurs: "Пожалуйста, выберите курс",
       errSlot: "Пожалуйста, выберите свободное время в расписании",
       errUstoza: "Пожалуйста, выберите преподавателя",
+      noUstozaAvailable: "На этот день/время нет работающего преподавателя. Пожалуйста, выберите другое время.",
       btnSubmit: "Отправить",
       modalTitle: "Спасибо!",
       modalText: "Спасибо! Вы успешно записались. Наш помощник-преподаватель скоро свяжется с вами.",
@@ -289,6 +264,7 @@ document.addEventListener('DOMContentLoaded', () => {
       labelKurs: "Course", errKurs: "Please select a course",
       errSlot: "Please pick a free time on the schedule",
       errUstoza: "Please choose a teacher",
+      noUstozaAvailable: "No teacher works on this day/time. Please choose another time.",
       btnSubmit: "Submit",
       modalTitle: "Thank you!",
       modalText: "Thank you! You have successfully registered. Our mentor teacher will contact you soon.",
@@ -408,14 +384,18 @@ document.addEventListener('DOMContentLoaded', () => {
   function renderGrid(){
     if (!selectedKurs || !COURSES[selectedKurs] || !ttGrid) return;
     const { slots, capacity } = COURSES[selectedKurs];
-    const dates = weekDates();
+    const fullWeek = weekDates();
+    const excludedDays = COURSE_EXCLUDED_DAYS[selectedKurs] || [];
+    const dates = fullWeek.filter((d) => excludedDays.indexOf(d.getDay()) === -1);
     const today = new Date();
     today.setHours(0,0,0,0);
 
     if (weekPrev) weekPrev.disabled = weekOffset <= 0;
-    if (weekLabel) weekLabel.textContent = `${formatDateShort(dates[0])} — ${formatDateShort(dates[6])}`;
+    if (weekLabel) weekLabel.textContent = `${formatDateShort(fullWeek[0])} — ${formatDateShort(fullWeek[6])}`;
 
     ttGrid.innerHTML = '';
+    ttGrid.style.gridTemplateColumns = `74px repeat(${dates.length}, minmax(80px,1fr))`;
+    ttGrid.style.minWidth = `${74 + dates.length * 80}px`;
     ttGrid.style.gridTemplateRows = `auto repeat(${slots.length}, auto)`;
 
     const corner = document.createElement('div');
@@ -423,9 +403,8 @@ document.addEventListener('DOMContentLoaded', () => {
     ttGrid.appendChild(corner);
 
     dates.forEach((d) => {
-      const dayAllowedForHeader = isCourseDayAllowed(selectedKurs, d);
       const head = document.createElement('div');
-      head.className = 'tt-head' + (sameDate(d, today) ? ' is-today' : '') + (!dayAllowedForHeader ? ' is-blocked' : '');
+      head.className = 'tt-head' + (sameDate(d, today) ? ' is-today' : '');
       head.innerHTML = `<div class="dow">${DOW_SHORT[currentLang][d.getDay()]}</div><div class="dnum">${formatDateShort(d)}</div>`;
       ttGrid.appendChild(head);
     });
@@ -438,11 +417,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
       dates.forEach((d) => {
         const dateVal = formatDateValue(d);
-        const dayAllowed = isCourseDayAllowed(selectedKurs, d);
         const booked = (availabilityMap[dateVal] && availabilityMap[dateVal][time]) || 0;
         const remaining = capacity - booked;
-        const isFull = !dayAllowed || remaining <= 0;
-        const isPartial = dayAllowed && !isFull && remaining < capacity && capacity > 1;
+        const isFull = remaining <= 0;
+        const isPartial = !isFull && remaining < capacity && capacity > 1;
         const isSelected = selectedDate && sameDate(selectedDate, d) && selectedTime === time;
 
         const cell = document.createElement('div');
@@ -450,8 +428,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (isSelected){
           cell.innerHTML = '✓';
-        } else if (!dayAllowed){
-          cell.textContent = '';
         } else if (isFull){
           cell.textContent = t('fullTag');
         } else if (isPartial){
@@ -530,23 +506,19 @@ document.addEventListener('DOMContentLoaded', () => {
     return TEACHER_COURSES.indexOf(selectedKurs) !== -1;
   }
 
-  // Tanlangan sana/vaqtda haqiqatda ishlaydigan ustozalar ro'yxati.
-  // Bu filtr saytda ko'rinmaydi — faqat mos keladigan ustozalar chip
-  // sifatida chiqadi, ishlamaydiganlari umuman ro'yxatga tushmaydi.
-  function getAvailableTeachersForSlot(){
-    if (!selectedDate || !selectedTime) return [];
-    return (COURSE_TEACHERS[selectedKurs] || []).filter((name) =>
-      isTeacherAvailable(name, selectedDate, selectedTime)
-    );
-  }
-
   // --- Ustoza chips: rendering is purely visual now. Clicks are handled by a
   // single delegated listener attached once below, so a chip always reacts
-  // to a click even while data is still being re-rendered/refreshed. ---
+  // to a click even while data is still being re-rendered/refreshed.
+  // Ustozalar ro'yxati endi tanlangan sana/vaqtga qarab filtrlanadi:
+  // TEACHER_SCHEDULE bo'yicha shu kun/vaqtda ishlamaydigan ustoza umuman ko'rsatilmaydi. ---
   function renderUstozaOptions(){
     if (!ustozaOptions) return;
     ustozaOptions.innerHTML = '';
-    getAvailableTeachersForSlot().forEach((name) => {
+    let shown = 0;
+    (COURSE_TEACHERS[selectedKurs] || []).forEach((name) => {
+      if (!isTeacherScheduled(name, selectedDate, selectedTime)) return; // bu kun/vaqtda ishlamaydi -> chiqarilmaydi
+
+      shown++;
       const count = teacherCounts[name] || 0;
       const isTaken = count >= teacherCapacity;
       const isSelected = selectedUstoza === name;
@@ -561,6 +533,14 @@ document.addEventListener('DOMContentLoaded', () => {
       chip.innerHTML = `${checkMark}<span class="ustoza-chip__name">${name}</span> <span class="ustoza-chip__count">(${count}/${teacherCapacity})</span>`;
       ustozaOptions.appendChild(chip);
     });
+
+    if (shown === 0 && (COURSE_TEACHERS[selectedKurs] || []).length){
+      const msg = document.createElement('div');
+      msg.className = 'ustoza-empty';
+      msg.style.cssText = 'font-size:0.86rem;color:#8A9C93;padding:6px 2px;';
+      msg.textContent = t('noUstozaAvailable');
+      ustozaOptions.appendChild(msg);
+    }
   }
 
   function selectUstozaByName(name){
@@ -597,11 +577,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const data = await res.json();
       return {
         counts: (data && typeof data.counts === 'object' && data.counts) ? data.counts : {},
-        capacity: (data && typeof data.capacity === 'number' && data.capacity > 0) ? data.capacity : 1
+        capacity: (data && typeof data.capacity === 'number' && data.capacity > 0) ? data.capacity : 4
       };
     } catch (err) {
       console.warn("O'qituvchilar yuklashda xatolik:", err);
-      return { counts: {}, capacity: 1 };
+      return { counts: {}, capacity: 4 };
     }
   }
 
@@ -801,6 +781,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (ttWrapper && ttWrapper.style.display !== 'none'){
       renderGrid();
       updateSelectedInfo();
+    }
+    if (ustozaBlock && ustozaBlock.style.display !== 'none'){
+      renderUstozaOptions();
     }
   }
 
