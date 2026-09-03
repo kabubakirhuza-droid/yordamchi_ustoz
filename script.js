@@ -35,18 +35,15 @@ function isCourseDayAllowed(kurs, date){
 const COURSE_TEACHERS = {
   "Arab tili - Harf": [
     "Nargiza Ustoza",
-    "Fazilat Ustoza",
-    "Risolat Ustoza"
+    "Fazilat Ustoza"
   ],
   "Arab tili - Qoida": [
     "Nargiza Ustoza",
-    "Fazilat Ustoza",
-    "Risolat Ustoza"
+    "Fazilat Ustoza"
   ],
   "Arab tili - Amaliyot": [
     "Nargiza Ustoza",
-    "Fazilat Ustoza",
-    "Risolat Ustoza"
+    "Fazilat Ustoza"
   ],
   "Nurli Bolajon": [
     "Muslima Ustoza"
@@ -68,10 +65,6 @@ const TEACHER_SCHEDULE = {
   ],
   "Muslima Ustoza": [
     { days: WEEKDAYS_MON_FRI, start: "13:00", end: "17:00" }
-  ],
-  "Risolat Ustoza": [
-    { days: WEEKDAYS_MON_FRI, start: "14:00", end: "17:00" },
-    { days: WEEKEND_SAT_SUN,  start: "09:00", end: "17:00" }
   ]
 };
 
