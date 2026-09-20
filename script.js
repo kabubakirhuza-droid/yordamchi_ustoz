@@ -205,7 +205,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let selectedUstoza = null;
   let teacherCounts = {};
-  let teacherCapacity = 1;
+  let teacherCapacity = 4;
   let ustozaRequestId = 0;
 
   const translations = {
@@ -357,11 +357,13 @@ document.addEventListener('DOMContentLoaded', () => {
   function buildKursPanel(){
     if (!kursPanel) return;
     kursPanel.innerHTML = '';
-    COURSE_ORDER.forEach((value) => {
+    const coursesList = Object.keys(COURSES).length > 0 ? Object.keys(COURSES) : COURSE_ORDER;
+    coursesList.forEach((value) => {
       const opt = document.createElement('div');
       opt.className = 'dd__option' + (value === selectedKurs ? ' is-selected' : '');
       opt.setAttribute('role', 'option');
-      opt.textContent = t(COURSE_KEYS[value]);
+      const label = COURSE_KEYS[value] ? t(COURSE_KEYS[value]) : value;
+      opt.textContent = label;
       opt.addEventListener('click', () => selectKurs(value));
       kursPanel.appendChild(opt);
     });
@@ -371,7 +373,7 @@ document.addEventListener('DOMContentLoaded', () => {
     selectedKurs = value;
     if (kursHidden) kursHidden.value = value;
     if (kursValueEl) {
-      kursValueEl.textContent = t(COURSE_KEYS[value]);
+      kursValueEl.textContent = COURSE_KEYS[value] ? t(COURSE_KEYS[value]) : value;
       kursValueEl.classList.remove('is-placeholder');
     }
     if (kursField) {
@@ -635,6 +637,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function fetchTeacherCounts(kurs, sana, vaqt){
+    const defaultCap = (COURSES[kurs] && COURSES[kurs].capacity) || 4;
     const url = `${SCRIPT_URL}?action=ustozalar&kurs=${encodeURIComponent(kurs)}&sana=${encodeURIComponent(sana)}&vaqt=${encodeURIComponent(vaqt)}`;
     try {
       const res = await fetch(url, { method: 'GET' });
@@ -642,11 +645,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const data = await res.json();
       return {
         counts: (data && typeof data.counts === 'object' && data.counts) ? data.counts : {},
-        capacity: (data && typeof data.capacity === 'number' && data.capacity > 0) ? data.capacity : 1
+        capacity: (data && typeof data.capacity === 'number' && data.capacity > 0) ? data.capacity : defaultCap
       };
     } catch (err) {
       console.warn("O'qituvchilar yuklashda xatolik:", err);
-      return { counts: {}, capacity: 1 };
+      return { counts: {}, capacity: defaultCap };
     }
   }
 
@@ -663,6 +666,7 @@ document.addEventListener('DOMContentLoaded', () => {
     ustozaBlock.style.display = 'block';
 
     const myId = ++ustozaRequestId;
+    teacherCapacity = (COURSES[selectedKurs] && COURSES[selectedKurs].capacity) || 4;
     teacherCounts = {};
     renderUstozaOptions();
 
@@ -883,6 +887,9 @@ document.addEventListener('DOMContentLoaded', () => {
     buildKursPanel();
     if (selectedKurs && ttWrapper && ttWrapper.style.display !== 'none'){
       loadAvailabilityAndRender();
+    }
+    if (selectedKurs && selectedDate && selectedTime){
+      updateUstozaStep();
     }
   }
 
