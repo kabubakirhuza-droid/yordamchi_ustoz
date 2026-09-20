@@ -11,7 +11,7 @@ function buildSlots(startHour, startMin, endHour, endMin, stepMin){
   return slots;
 }
 
-const COURSES = {
+let COURSES = {
   "Arab tili - Harf":       { slots: buildSlots(9,0,17,0,30), capacity: 4 },
   "Arab tili - Qoida":      { slots: buildSlots(9,0,17,0,30), capacity: 4 },
   "Arab tili - Amaliyot":   { slots: buildSlots(9,0,17,0,30), capacity: 4 },
@@ -22,17 +22,35 @@ const COURSES = {
 
 // Ba'zi kurslar faqat muayyan kunlarda mavjud bo'lishi mumkin.
 // 0=Yak,1=Dush,2=Sesh,3=Chor,4=Pay,5=Jum,6=Shan
-const COURSE_DAYS = {
+let COURSE_DAYS = {
   "Nurli Bolajon": [4] // faqat Payshanba
 };
 
+let COURSE_EXCLUDED_DAYS = {
+  "Nurli Bolajon": [0, 1, 2, 3, 5, 6]
+};
+
+let HOLIDAY_DATES = [
+  "31.08.2026",
+  "01.09.2026"
+];
+
+function isHolidayDate(date){
+  if (!date) return false;
+  return HOLIDAY_DATES.indexOf(formatDateValue(date)) !== -1;
+}
+
 function isCourseDayAllowed(kurs, date){
+  if (isHolidayDate(date)) return false;
+  if (COURSE_EXCLUDED_DAYS && COURSE_EXCLUDED_DAYS[kurs]) {
+    if (COURSE_EXCLUDED_DAYS[kurs].indexOf(date.getDay()) !== -1) return false;
+  }
   const days = COURSE_DAYS[kurs];
   if (!days) return true;
   return days.indexOf(date.getDay()) !== -1;
 }
 
-const COURSE_TEACHERS = {
+let COURSE_TEACHERS = {
   "Arab tili - Harf": [
     "Nargiza Ustoza",
     "Fazilat Ustoza"
@@ -49,14 +67,14 @@ const COURSE_TEACHERS = {
     "Muslima Ustoza"
   ]
 };
-const TEACHER_COURSES = Object.keys(COURSE_TEACHERS);
+let TEACHER_COURSES = Object.keys(COURSE_TEACHERS);
 
 // --- Ish jadvali (ichki, saytda ko'rsatilmaydi) ---
 // days: JS Date.getDay() bo'yicha: 0=Yak,1=Dush,2=Sesh,3=Chor,4=Pay,5=Jum,6=Shan
 const WEEKDAYS_MON_FRI = [1,2,3,4,5];
 const WEEKEND_SAT_SUN = [0,6];
 
-const TEACHER_SCHEDULE = {
+let TEACHER_SCHEDULE = {
   "Nargiza Ustoza": [
     { days: WEEKDAYS_MON_FRI, start: "08:00", end: "12:00" }
   ],
@@ -80,12 +98,24 @@ function isTeacherAvailable(name, date, time){
   if (!date || !time) return false;
   const dow = date.getDay();
   const mins = timeToMinutes(time);
-  return schedule.some((block) => {
-    if (block.days.indexOf(dow) === -1) return false;
-    const startMins = timeToMinutes(block.start);
-    const endMins = timeToMinutes(block.end);
-    return mins >= startMins && mins < endMins;
-  });
+
+  if (Array.isArray(schedule)){
+    return schedule.some((block) => {
+      if (block.days.indexOf(dow) === -1) return false;
+      const startMins = timeToMinutes(block.start);
+      const endMins = timeToMinutes(block.end);
+      return mins >= startMins && mins < endMins;
+    });
+  }
+
+  // Admin panel obyekti shaklida ({ offDays: [0, 6], start: "08:00", end: "12:00" })
+  if (schedule.offDays && schedule.offDays.indexOf(dow) !== -1) return false;
+  if (schedule.start && schedule.end){
+    const startMins = timeToMinutes(schedule.start);
+    const endMins = timeToMinutes(schedule.end);
+    return mins >= startMins && mins <= endMins;
+  }
+  return true;
 }
 
 const DOW_FULL = {
@@ -805,7 +835,59 @@ document.addEventListener('DOMContentLoaded', () => {
 
   langButtons.forEach((btn) => btn.addEventListener('click', () => applyLang(btn.getAttribute('data-lang'))));
 
+  function applyDynamicConfig(cfg){
+    if (!cfg) return;
+    if (cfg.courses && typeof cfg.courses === 'object'){
+      Object.entries(cfg.courses).forEach(([cName, cData]) => {
+        COURSES[cName] = {
+          slots: buildSlots(cData.startHour, cData.startMin || 0, cData.endHour, cData.endMin || 0, cData.stepMin || 30),
+          capacity: cData.capacity || 1
+        };
+      });
+    }
+    if (cfg.courseTeachers && typeof cfg.courseTeachers === 'object'){
+      COURSE_TEACHERS = Object.assign({}, cfg.courseTeachers);
+      TEACHER_COURSES = Object.keys(COURSE_TEACHERS);
+    }
+    if (cfg.teacherSchedule && typeof cfg.teacherSchedule === 'object'){
+      TEACHER_SCHEDULE = Object.assign({}, cfg.teacherSchedule);
+    }
+    if (cfg.holidayDates && Array.isArray(cfg.holidayDates)){
+      HOLIDAY_DATES = cfg.holidayDates.map(h => typeof h === 'string' ? h : (h && h.date ? h.date : ''));
+    }
+    if (cfg.courseExcludedDays && typeof cfg.courseExcludedDays === 'object'){
+      COURSE_EXCLUDED_DAYS = Object.assign({}, cfg.courseExcludedDays);
+    }
+    buildKursPanel();
+    if (selectedKurs && ttWrapper && ttWrapper.style.display !== 'none'){
+      loadAvailabilityAndRender();
+    }
+  }
+
+  // 1. Keshdan zudlik bilan yuklash
+  try {
+    const cachedCfg = localStorage.getItem('zn_sergeli_live_config');
+    if (cachedCfg) applyDynamicConfig(JSON.parse(cachedCfg));
+  } catch(e){}
+
+  // 2. Google Sheets dan real-vaqt rejimida yuklash
+  async function fetchLiveConfig(){
+    try {
+      const res = await fetch(`${SCRIPT_URL}?action=get_config`);
+      if (res.ok) {
+        const liveData = await res.json();
+        if (liveData && (liveData.courses || liveData.courseTeachers)){
+          applyDynamicConfig(liveData);
+          try { localStorage.setItem('zn_sergeli_live_config', JSON.stringify(liveData)); } catch(e){}
+        }
+      }
+    } catch(err){
+      console.warn("Live config fetch fallback:", err);
+    }
+  }
+
   buildKursPanel();
   initTheme();
   initLang();
+  fetchLiveConfig();
 });

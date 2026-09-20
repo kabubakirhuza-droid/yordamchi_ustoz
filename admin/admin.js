@@ -4,42 +4,36 @@
  */
 
 const DEFAULT_CONFIG = {
-  scriptUrl: "https://script.google.com/macros/s/AKfycbxchn5ex6zRB6gfqo4_HzZ9k5-czCu2TPbOkEJwvGYZ_qW2rC234BciyxNig_nuU1f_/exec",
+  scriptUrl: "https://script.google.com/macros/s/AKfycbyc8N0QyY9b3AI_BCGkdWeU7URxvjLrb-XJdsLQRwRYzJhwDtNFPb9vSaBfELL4uzfZ/exec",
   courses: {
     "Arab tili - Harf":       { startHour: 9, startMin: 0, endHour: 17, endMin: 0, stepMin: 30, capacity: 4 },
     "Arab tili - Qoida":      { startHour: 9, startMin: 0, endHour: 17, endMin: 0, stepMin: 30, capacity: 4 },
     "Arab tili - Amaliyot":   { startHour: 9, startMin: 0, endHour: 17, endMin: 0, stepMin: 30, capacity: 4 },
     "Arab tili grammatikasi": { startHour: 9, startMin: 0, endHour: 17, endMin: 0, stepMin: 30, capacity: 4 },
     "Ingliz tili":            { startHour: 9, startMin: 0, endHour: 12, endMin: 0, stepMin: 30, capacity: 1 },
-    "Nurli Bolajon":          { startHour: 14, startMin: 0, endHour: 16, endMin: 0, stepMin: 30, capacity: 1 }
+    "Nurli Bolajon":          { startHour: 13, startMin: 0, endHour: 17, endMin: 0, stepMin: 30, capacity: 1 }
   },
   courseExcludedDays: {
-    "Nurli Bolajon": [0, 6] // Shanba va Yakshanba dam olish
+    "Nurli Bolajon": [0, 1, 2, 3, 5, 6] // Faqat Payshanba kuni dars bor (boshqa kunlar chiqarib tashlangan)
   },
   holidayDates: [
     { date: "31.08.2026", title: "Mustaqillik kuni arafasi - dam olish" },
     { date: "01.09.2026", title: "Mustaqillik kuni" }
   ],
   courseTeachers: {
-    "Arab tili - Harf": ["Nargiza Ustoza", "Fazilat Ustoza", "Kamola Ustoza", "Risolat Ustoza"],
-    "Arab tili - Qoida": ["Nargiza Ustoza", "Fazilat Ustoza", "Kamola Ustoza", "Risolat Ustoza"],
-    "Arab tili - Amaliyot": ["Nargiza Ustoza", "Fazilat Ustoza", "Kamola Ustoza", "Risolat Ustoza"],
+    "Arab tili - Harf": ["Nargiza Ustoza", "Fazilat Ustoza"],
+    "Arab tili - Qoida": ["Nargiza Ustoza", "Fazilat Ustoza"],
+    "Arab tili - Amaliyot": ["Nargiza Ustoza", "Fazilat Ustoza"],
     "Arab tili grammatikasi": ["Nargiza Ustoza"],
-    "Ingliz tili": ["Mohinur Ustoza"],
-    "Nurli Bolajon": ["Fazilat Ustoza", "Kamola Ustoza"]
+    "Ingliz tili": ["Fazilat Ustoza"],
+    "Nurli Bolajon": ["Muslima Ustoza"]
   },
   teacherSchedule: {
-    "Nargiza Ustoza": { offDays: [0],    start: "09:00", end: "17:00" },
-    "Fazilat Ustoza": { offDays: [4],    start: "09:00", end: "17:00" },
-    "Kamola Ustoza":  { offDays: [0, 6], start: "09:00", end: "17:00" },
-    "Risolat Ustoza": { offDays: [0],    start: "09:00", end: "17:00" },
-    "Mohinur Ustoza": { offDays: [],     start: "09:00", end: "12:00" }
+    "Nargiza Ustoza": { offDays: [0, 6], start: "08:00", end: "12:00" },
+    "Fazilat Ustoza": { offDays: [0, 6], start: "09:00", end: "13:00" },
+    "Muslima Ustoza": { offDays: [0, 1, 2, 3, 5, 6], start: "13:00", end: "17:00" }
   },
-  bookings: [
-    { id: "b1", vaqt: "04.09.2026 10:30", ism: "Dilnoza", familiya: "Karimova", telefon: "+998 90 123 45 67", kurs: "Arab tili - Harf", ustoza: "Nargiza Ustoza", slot: "05.09.2026 (10:00)", status: "Yangi" },
-    { id: "b2", vaqt: "04.09.2026 14:15", ism: "Shahnoza", familiya: "Alimova", telefon: "+998 93 765 43 21", kurs: "Arab tili grammatikasi", ustoza: "Nargiza Ustoza", slot: "06.09.2026 (11:30)", status: "Tasdiqlandi" },
-    { id: "b3", vaqt: "05.09.2026 09:00", ism: "Zuxra", familiya: "Usmonova", telefon: "+998 97 555 11 22", kurs: "Nurli Bolajon", ustoza: "Fazilat Ustoza", slot: "07.09.2026 (14:30)", status: "Bog'lanildi" }
-  ]
+  bookings: []
 };
 
 const DOW_SHORT = {
@@ -1107,30 +1101,45 @@ function isTeacherScheduled(name, date, time){
 // ==========================================================================
 
 function doGet(e) {
-  var action = e.parameter.action;
+  var params = e ? e.parameter : {};
+  var action = params.action;
   var ss = SpreadsheetApp.getActiveSpreadsheet();
 
-  if (action === "availability") {
-    var kurs = e.parameter.kurs || "";
-    return ContentService.createTextOutput(JSON.stringify(getAvailability(kurs, ss)))
-      .setMimeType(ContentService.MimeType.JSON);
+  // 1. Sayt va Admin uchun hozirgi sozlamalarni olish
+  if (action === "get_config") {
+    var configSheet = ss.getSheetByName("Sozlamalar");
+    if (configSheet && configSheet.getLastRow() >= 1) {
+      try {
+        var raw = configSheet.getRange(1, 1).getValue();
+        if (raw) {
+          var parsed = JSON.parse(raw);
+          return createJsonResponse(parsed);
+        }
+      } catch (err) {}
+    }
+    return createJsonResponse({ status: "empty" });
   }
 
-  if (action === "ustozalar") {
-    var kurs = e.parameter.kurs || "";
-    var sana = e.parameter.sana || "";
-    var vaqt = e.parameter.vaqt || "";
-    return ContentService.createTextOutput(JSON.stringify(getTeacherCounts(kurs, sana, vaqt, ss)))
-      .setMimeType(ContentService.MimeType.JSON);
-  }
-
+  // 2. Admin panel uchun barcha arizalarni olish
   if (action === "get_bookings") {
-    return ContentService.createTextOutput(JSON.stringify(getAllBookings(ss)))
-      .setMimeType(ContentService.MimeType.JSON);
+    return createJsonResponse(getAllBookings(ss));
   }
 
-  return ContentService.createTextOutput(JSON.stringify({ status: "ok", service: "ZIN-NUR API (Sergeli)" }))
-    .setMimeType(ContentService.MimeType.JSON);
+  // 3. Ustoza bandligini hisoblash
+  if (action === "ustozalar") {
+    var kurs = params.kurs || "";
+    var sana = params.sana || "";
+    var vaqt = params.vaqt || "";
+    return createJsonResponse(getTeacherCounts(kurs, sana, vaqt, ss));
+  }
+
+  // 4. Mavjud vaqtlarni hisoblash
+  if (action === "availability") {
+    var kurs = params.kurs || "";
+    return createJsonResponse(getAvailability(kurs, ss));
+  }
+
+  return createJsonResponse({ status: "ok", service: "ZIN-NUR Sergeli API" });
 }
 
 function doPost(e) {
@@ -1138,16 +1147,20 @@ function doPost(e) {
     var data = JSON.parse(e.postData.contents);
     var ss = SpreadsheetApp.getActiveSpreadsheet();
 
+    // 1. Admin paneldan sozlamalarni saqlash
     if (data.action === "save_config") {
-      var configSheet = ss.getSheetByName("Sozlamalar") || ss.insertSheet("Sozlamalar");
+      var configSheet = ss.getSheetByName("Sozlamalar");
+      if (!configSheet) {
+        configSheet = ss.insertSheet("Sozlamalar");
+      }
       configSheet.getRange(1, 1).setValue(JSON.stringify(data));
-      return ContentService.createTextOutput(JSON.stringify({ success: true, message: "Config saved" }))
-        .setMimeType(ContentService.MimeType.JSON);
+      return createJsonResponse({ success: true, message: "Config saved" });
     }
 
+    // 2. Saytdan yangi talaba arizasini saqlash
     var sheet = ss.getSheetByName("Royxat") || ss.getActiveSheet();
     sheet.appendRow([
-      data.yuborilgan_vaqt || new Date().toLocaleString(),
+      data.yuborilgan_vaqt || new Date().toLocaleString("uz-UZ", { timeZone: "Asia/Tashkent" }),
       data.ism || "",
       data.familiya || "",
       data.telefon || "",
@@ -1155,16 +1168,84 @@ function doPost(e) {
       data.sana || "",
       data.vaqt || "",
       data.kun || "",
-      data.ustoza || ""
+      data.ustoza || "",
+      "Yangi"
     ]);
 
-    return ContentService.createTextOutput(JSON.stringify({ success: true }))
-      .setMimeType(ContentService.MimeType.JSON);
+    return createJsonResponse({ success: true });
 
   } catch (err) {
-    return ContentService.createTextOutput(JSON.stringify({ success: false, error: err.message }))
-      .setMimeType(ContentService.MimeType.JSON);
+    return createJsonResponse({ success: false, error: err.message });
   }
+}
+
+function createJsonResponse(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function getAllBookings(ss) {
+  var sheet = ss.getSheetByName("Royxat") || ss.getActiveSheet();
+  var rows = sheet.getDataRange().getValues();
+  if (rows.length <= 1) return [];
+
+  var bookings = [];
+  for (var i = 1; i < rows.length; i++) {
+    var r = rows[i];
+    if (!r[0] && !r[1] && !r[3]) continue;
+    bookings.push({
+      id: "b_" + i,
+      vaqt: r[0] ? String(r[0]) : "",
+      ism: r[1] ? String(r[1]) : "",
+      familiya: r[2] ? String(r[2]) : "",
+      telefon: r[3] ? String(r[3]) : "",
+      kurs: r[4] ? String(r[4]) : "",
+      sana: r[5] ? String(r[5]) : "",
+      slot: (r[5] ? String(r[5]) : "") + " (" + (r[6] ? String(r[6]) : "") + ")",
+      kun: r[7] ? String(r[7]) : "",
+      ustoza: r[8] ? String(r[8]) : "",
+      status: r[9] ? String(r[9]) : "Yangi"
+    });
+  }
+  return bookings.reverse();
+}
+
+function getTeacherCounts(kurs, sana, vaqt, ss) {
+  var sheet = ss.getSheetByName("Royxat") || ss.getActiveSheet();
+  var rows = sheet.getDataRange().getValues();
+  var counts = {};
+
+  for (var i = 1; i < rows.length; i++) {
+    var rKurs = String(rows[i][4]).trim();
+    var rSana = String(rows[i][5]).trim();
+    var rVaqt = String(rows[i][6]).trim();
+    var rUstoza = String(rows[i][8]).trim();
+
+    if (rKurs === kurs && rSana === sana && rVaqt === vaqt && rUstoza) {
+      counts[rUstoza] = (counts[rUstoza] || 0) + 1;
+    }
+  }
+
+  return { counts: counts, capacity: 4 };
+}
+
+function getAvailability(kurs, ss) {
+  var sheet = ss.getSheetByName("Royxat") || ss.getActiveSheet();
+  var rows = sheet.getDataRange().getValues();
+  var map = {};
+
+  for (var i = 1; i < rows.length; i++) {
+    var rKurs = String(rows[i][4]).trim();
+    var rSana = String(rows[i][5]).trim();
+    var rVaqt = String(rows[i][6]).trim();
+
+    if (rKurs === kurs && rSana && rVaqt) {
+      if (!map[rSana]) map[rSana] = {};
+      map[rSana][rVaqt] = (map[rSana][rVaqt] || 0) + 1;
+    }
+  }
+
+  return map;
 }
 `;
   }
