@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="uz" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ZIN-NUR Akademiyasi (Sergeli) — Boshqaruv Markazi</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+
+  <!-- ================= MAIN APP LAYOUT ================= -->
+  <div class="app-layout" id="appLayout">
+    
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-brand">
+          <div class="logo-mark">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+          </div>
+          <div class="brand-text">
+            <h3>ZIN-NUR</h3>
+            <span>Boshqaruv Markazi</span>
+          </div>
+        </div>
+        <button class="btn-icon sidebar-close-mobile" id="sidebarCloseMobile" aria-label="Yopish">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <nav class="sidebar-nav">
+        <button class="nav-item active" data-tab="dashboard">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+          <span data-i18n="navDashboard">Boshqaruv paneli</span>
+        </button>
+
+        <button class="nav-item" data-tab="teachers">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+          <span data-i18n="navTeachers">Ustozalar</span>
+          <span class="nav-badge" id="navTeacherCount">0</span>
+        </button>
+
+        <button class="nav-item" data-tab="courses">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+          <span data-i18n="navCourses">Kurslar boshqaruvi</span>
+          <span class="nav-badge" id="navCourseCount">6</span>
+        </button>
+
+        <button class="nav-item" data-tab="schedule">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <span data-i18n="navSchedule">Ish jadvali & Soatlar</span>
+        </button>
+
+        <button class="nav-item" data-tab="holidays">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+          <span data-i18n="navHolidays">Bayram / Dam olish</span>
+        </button>
+
+        <button class="nav-item" data-tab="bookings">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          <span data-i18n="navBookings">Arizalar & Talabalar</span>
+          <span class="nav-badge highlight" id="navBookingCount">0</span>
+        </button>
+
+        <button class="nav-item" data-tab="sync">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+          <span data-i18n="navSync">Sinxronlash & Kod</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="live-status-pill online">
+          <span class="pulse-dot"></span>
+          <span>Tizim online faol</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN CONTENT AREA -->
+    <div class="main-wrapper">
+      
+      <!-- TOPBAR -->
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="btn-icon mobile-menu-btn" id="mobileMenuBtn" aria-label="Menyu">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          </button>
+          <div class="page-title-box">
+            <h1 id="pageTitle">Boshqaruv paneli</h1>
+            <p id="pageSubtitle">ZIN-NUR akademiyasi saytining real vaqt rejimidagi sozlamalari</p>
+          </div>
+        </div>
+
+        <div class="topbar-right">
+          <!-- Direct Site Link -->
+          <a href="https://www.zinnursupport-ser.uz/" target="_blank" rel="noopener" class="btn btn-outline btn-sm direct-site-btn">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"/></svg>
+            <span>Saytni ko'rish</span>
+          </a>
+
+          <!-- Quick Save/Sync button -->
+          <button class="btn btn-primary btn-sm" id="topSaveBtn">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            <span data-i18n="btnSaveAll">Saqlash</span>
+          </button>
+
+          <!-- Language Switcher -->
+          <div class="lang-picker">
+            <button type="button" class="lang-btn active" data-lang="uz">UZ</button>
+            <button type="button" class="lang-btn" data-lang="ru">RU</button>
+            <button type="button" class="lang-btn" data-lang="en">EN</button>
+          </div>
+
+          <!-- Theme Toggle -->
+          <button type="button" class="theme-toggle-btn" id="themeToggleBtn" aria-label="Mavzuni almashtirish">
+            <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+            <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+          </button>
+        </div>
+      </header>
+
+      <!-- CONTENT BODY -->
+      <main class="content-body">
+        
+        <!-- ================= TAB: DASHBOARD ================= -->
+        <section class="tab-pane active" id="tabDashboard">
+          <!-- Stat Cards -->
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-icon emerald">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+              </div>
+              <div class="stat-info">
+                <span class="stat-label">Ustozalar soni</span>
+                <strong class="stat-val" id="statTeachersCount">0</strong>
+                <span class="stat-sub">Barcha o'qituvchilar</span>
+              </div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-icon blue">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+              </div>
+              <div class="stat-info">
+                <span class="stat-label">Faol kurslar</span>
+                <strong class="stat-val" id="statCoursesCount">6</strong>
+                <span class="stat-sub">Nurli Bolajon bilan birga</span>
+              </div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-icon purple">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+              </div>
+              <div class="stat-info">
+                <span class="stat-label">Arizalar soni</span>
+                <strong class="stat-val" id="statBookingsCount">0</strong>
+                <span class="stat-sub">Jami qabul qilingan</span>
+              </div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-icon amber">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4"/></svg>
+              </div>
+              <div class="stat-info">
+                <span class="stat-label">Bayram kunlari</span>
+                <strong class="stat-val" id="statHolidaysCount">2</strong>
+                <span class="stat-sub">Bloklangan sanalar</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Action and Summary grid -->
+          <div class="dashboard-split">
+            <!-- Left: Teacher Summary -->
+            <div class="card">
+              <div class="card-header">
+                <h3>👩‍🏫 Ustozalar va ularning bandligi</h3>
+                <button class="btn btn-outline btn-xs" onclick="adminApp.navigateTab('teachers')">Barchasi</button>
+              </div>
+              <div class="card-body">
+                <div class="teacher-quick-list" id="dashboardTeacherList"></div>
+              </div>
+            </div>
+
+            <!-- Right: Quick actions -->
+            <div class="card">
+              <div class="card-header">
+                <h3>⚡ Tezkor amallar</h3>
+              </div>
+              <div class="card-body">
+                <div class="quick-actions-grid">
+                  <button class="quick-action-btn" onclick="adminApp.openAddTeacherModal()">
+                    <div class="qa-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg></div>
+                    <strong>Yangi ustoza qo'shish</strong>
+                    <span>Ism, kurs va ish vaqtini belgilash</span>
+                  </button>
+
+                  <button class="quick-action-btn" onclick="adminApp.openAddCourseModal()">
+                    <div class="qa-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></div>
+                    <strong>Yangi kurs qo'shish</strong>
+                    <span>Nom, vaqt oralig'i va sig'im</span>
+                  </button>
+
+                  <button class="quick-action-btn" onclick="adminApp.navigateTab('schedule')">
+                    <div class="qa-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
+                    <strong>Ish vaqtlarini sozlash</strong>
+                    <span>Dam olish kunlari va soatlar</span>
+                  </button>
+
+                  <button class="quick-action-btn" onclick="adminApp.openAddHolidayModal()">
+                    <div class="qa-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4"/></svg></div>
+                    <strong>Bayram sanasini kiritish</strong>
+                    <span>Saytda yozilishni yopish</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= TAB: TEACHERS ================= -->
+        <section class="tab-pane" id="tabTeachers">
+          <div class="tab-top-bar">
+            <div class="search-filter-box">
+              <div class="search-input-wrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="text" id="teacherSearchInput" placeholder="Ustozani qidirish...">
+              </div>
+              <select id="teacherCourseFilter" class="form-select">
+                <option value="all">Barcha kurslar</option>
+              </select>
+            </div>
+
+            <button class="btn btn-primary" onclick="adminApp.openAddTeacherModal()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              <span>Yangi ustoza qo'shish</span>
+            </button>
+          </div>
+
+          <div class="teachers-grid" id="teachersListContainer"></div>
+        </section>
+
+        <!-- ================= TAB: COURSES ================= -->
+        <section class="tab-pane" id="tabCourses">
+          <div class="tab-top-bar">
+            <div>
+              <h3>Barcha Kurslar va Guruh Sig'imi</h3>
+              <p style="color:var(--text-soft); font-size:0.88rem; margin-top:2px;">Kurslarni tahrirlash, yangisini qo'shish yoki o'chirish.</p>
+            </div>
+            <button class="btn btn-primary" onclick="adminApp.openAddCourseModal()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              <span>Yangi kurs qo'shish</span>
+            </button>
+          </div>
+
+          <div class="courses-management-grid" id="coursesGridContainer"></div>
+        </section>
+
+        <!-- ================= TAB: SCHEDULE & HOURS ================= -->
+        <section class="tab-pane" id="tabSchedule">
+          <div class="section-banner">
+            <div class="banner-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </div>
+            <div>
+              <h3>Ustozalarning ish soatlari va dam olish kunlari</h3>
+              <p>Har bir ustoza uchun boshlanish/tugash vaqti va dam olish kunlarini belgilang.</p>
+            </div>
+          </div>
+
+          <div class="schedule-table-wrap">
+            <table class="custom-table" id="scheduleTable">
+              <thead>
+                <tr>
+                  <th>Ustoza ismi</th>
+                  <th>Ish vaqti oralig'i</th>
+                  <th>Dam olish kunlari</th>
+                  <th>Biriktirilgan kurslar</th>
+                  <th>Amallar</th>
+                </tr>
+              </thead>
+              <tbody id="scheduleTableBody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- ================= TAB: HOLIDAYS ================= -->
+        <section class="tab-pane" id="tabHolidays">
+          <div class="tab-top-bar">
+            <div>
+              <h3>Bayramlar va Dam Olish Kunlari</h3>
+              <p style="color:var(--text-soft); font-size:0.88rem; margin-top:2px;">Bu sanalarda butun sayt bo'ylab barcha vaqtlar bloklanadi.</p>
+            </div>
+            <button class="btn btn-primary" onclick="adminApp.openAddHolidayModal()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              <span>Bayram sanasini qo'shish</span>
+            </button>
+          </div>
+
+          <div class="holidays-grid" id="holidaysListContainer"></div>
+        </section>
+
+        <!-- ================= TAB: BOOKINGS ================= -->
+        <section class="tab-pane" id="tabBookings">
+          <div class="tab-top-bar flex-wrap">
+            <div class="search-filter-box flex-wrap">
+              <div class="search-input-wrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="text" id="bookingSearchInput" placeholder="Ism yoki telefon...">
+              </div>
+              <select id="bookingCourseFilter" class="form-select">
+                <option value="all">Barcha kurslar</option>
+              </select>
+              <select id="bookingTeacherFilter" class="form-select">
+                <option value="all">Barcha ustozalar</option>
+              </select>
+            </div>
+
+            <div class="btn-group">
+              <button class="btn btn-outline" id="refreshBookingsBtn">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+                <span>Yangilash</span>
+              </button>
+              <button class="btn btn-primary" id="exportBookingsCsvBtn">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                <span>Excel (CSV) yuklab olish</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="bookings-table-wrap">
+            <table class="custom-table" id="bookingsTable">
+              <thead>
+                <tr>
+                  <th>Sana & Vaqt</th>
+                  <th>Talaba F.I.Sh</th>
+                  <th>Telefon</th>
+                  <th>Kurs</th>
+                  <th>Tanlangan Ustoza</th>
+                  <th>Dars vaqti</th>
+                  <th>Status</th>
+                  <th>Amallar</th>
+                </tr>
+              </thead>
+              <tbody id="bookingsTableBody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- ================= TAB: SYNC & CODE ================= -->
+        <section class="tab-pane" id="tabSync">
+          <div class="sync-grid">
+            
+            <div class="card">
+              <div class="card-header">
+                <h3>Google Apps Script / Sheets bilan sinxronlash</h3>
+              </div>
+              <div class="card-body">
+                <p style="color:var(--text-soft); font-size:0.9rem; margin-bottom:14px;">
+                  Google Apps Script URL manzilingizni kiriting va barcha o'zgarishlarni to'g'ridan-to'g'ri jadvalga saqlang.
+                </p>
+
+                <div class="form-group">
+                  <label for="scriptUrlInput">Google Script Web App URL</label>
+                  <input type="url" id="scriptUrlInput" class="form-control" placeholder="https://script.google.com/macros/s/.../exec">
+                </div>
+
+                <div class="btn-group mt-3">
+                  <button class="btn btn-primary" id="saveCloudSyncBtn">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                    <span>Google Sheets ga saqlash</span>
+                  </button>
+                  <button class="btn btn-outline" id="loadCloudSyncBtn">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                    <span>Google Sheets dan yuklab olish</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-header">
+                <h3>Zaxira nusxa (Backup JSON)</h3>
+              </div>
+              <div class="card-body">
+                <p style="color:var(--text-soft); font-size:0.9rem; margin-bottom:14px;">
+                  Barcha ustozalar, kurslar, jadvallar va sanalarni to'liq kompyuteringizga yuklab oling yoki fayldan qayta tiklang.
+                </p>
+
+                <div class="btn-group">
+                  <button class="btn btn-outline" id="exportBackupJsonBtn">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                    <span>JSON yuklab olish</span>
+                  </button>
+                  <label class="btn btn-outline" style="cursor:pointer;">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                    <span>JSON dan tiklash</span>
+                    <input type="file" id="importBackupJsonInput" accept=".json" style="display:none;">
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div class="card full-width">
+              <div class="card-header">
+                <h3>Sayt uchun Avtomatik Tayyor Kod</h3>
+                <div class="code-tab-switch">
+                  <button class="code-tab-btn active" data-code-tab="scriptJs">Sayt kodi (script.js)</button>
+                  <button class="code-tab-btn" data-code-tab="googleScript">Google Script (Code.gs)</button>
+                </div>
+              </div>
+              <div class="card-body">
+                <div class="code-box-header">
+                  <span id="codeBoxTitle">Hozirgi barcha o'zgarishlar asosida shakllangan script.js kodi</span>
+                  <button class="btn btn-sm btn-primary" id="copyGeneratedCodeBtn">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                    <span>Kodni nusxalash</span>
+                  </button>
+                </div>
+                <textarea id="generatedCodeArea" readonly class="code-textarea" rows="14"></textarea>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- ================= MODALS ================= -->
+
+  <!-- Modal: Add / Edit Teacher -->
+  <div class="modal-overlay" id="teacherModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 id="teacherModalTitle">Yangi ustoza qo'shish</h3>
+        <button class="modal-close-btn" onclick="adminApp.closeModal('teacherModal')">&times;</button>
+      </div>
+      <form id="teacherForm">
+        <input type="hidden" id="teacherOriginalName">
+        
+        <div class="form-group">
+          <label for="teacherNameInput">Ustozaning to'liq ismi <span class="req">*</span></label>
+          <input type="text" id="teacherNameInput" class="form-control" required placeholder="Masalan: Nargiza Ustoza">
+        </div>
+
+        <div class="form-group">
+          <label>Biriktirilgan kurslar <span class="req">*</span></label>
+          <div class="checkbox-list" id="teacherCoursesCheckboxes"></div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="teacherStartTime">Ish boshlanishi</label>
+            <input type="time" id="teacherStartTime" class="form-control" value="09:00">
+          </div>
+          <div class="form-group">
+            <label for="teacherEndTime">Ish tugashi</label>
+            <input type="time" id="teacherEndTime" class="form-control" value="17:00">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Dam olish kunlari (Hafta kunlari)</label>
+          <div class="days-toggle-group" id="teacherOffDaysToggles">
+            <button type="button" class="day-toggle-btn" data-dow="1">Dush</button>
+            <button type="button" class="day-toggle-btn" data-dow="2">Sesh</button>
+            <button type="button" class="day-toggle-btn" data-dow="3">Chor</button>
+            <button type="button" class="day-toggle-btn" data-dow="4">Pay</button>
+            <button type="button" class="day-toggle-btn" data-dow="5">Jum</button>
+            <button type="button" class="day-toggle-btn" data-dow="6">Shan</button>
+            <button type="button" class="day-toggle-btn active" data-dow="0">Yak</button>
+          </div>
+          <span class="field-hint">Yashil rangda belgilangan kunlar — ustozaning DAM OLISH kunlari</span>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="adminApp.closeModal('teacherModal')">Bekor qilish</button>
+          <button type="submit" class="btn btn-primary">Saqlash</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Add / Edit Course -->
+  <div class="modal-overlay" id="courseModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 id="courseModalTitle">Yangi kurs qo'shish</h3>
+        <button class="modal-close-btn" onclick="adminApp.closeModal('courseModal')">&times;</button>
+      </div>
+      <form id="courseForm">
+        <input type="hidden" id="courseOriginalName">
+
+        <div class="form-group">
+          <label for="courseNameInput">Kurs nomi <span class="req">*</span></label>
+          <input type="text" id="courseNameInput" class="form-control" required placeholder="Masalan: Nurli Bolajon">
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="courseStartHour">Boshlanish soati</label>
+            <input type="number" id="courseStartHour" class="form-control" min="0" max="23" value="9" required>
+          </div>
+          <div class="form-group">
+            <label for="courseEndHour">Tugash soati</label>
+            <input type="number" id="courseEndHour" class="form-control" min="0" max="23" value="17" required>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="courseStepMin">Slot qadami (daqiqa)</label>
+            <input type="number" id="courseStepMin" class="form-control" min="10" max="120" step="5" value="30" required>
+          </div>
+          <div class="form-group">
+            <label for="courseCapacity">Guruh sig'imi (kishi)</label>
+            <input type="number" id="courseCapacity" class="form-control" min="1" max="50" value="1" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Chiqarib tashlangan kunlar (Dars bo'lmaydigan kunlar)</label>
+          <div class="days-toggle-group" id="courseExcludedDaysToggles">
+            <button type="button" class="day-toggle-btn" data-dow="1">Dush</button>
+            <button type="button" class="day-toggle-btn" data-dow="2">Sesh</button>
+            <button type="button" class="day-toggle-btn" data-dow="3">Chor</button>
+            <button type="button" class="day-toggle-btn" data-dow="4">Pay</button>
+            <button type="button" class="day-toggle-btn" data-dow="5">Jum</button>
+            <button type="button" class="day-toggle-btn" data-dow="6">Shan</button>
+            <button type="button" class="day-toggle-btn" data-dow="0">Yak</button>
+          </div>
+          <span class="field-hint">Yashil rang — ushbu kunlarda bu kurs uchun jadval chiqarilmaydi</span>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="adminApp.closeModal('courseModal')">Bekor qilish</button>
+          <button type="submit" class="btn btn-primary">Saqlash</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Add Holiday -->
+  <div class="modal-overlay" id="holidayModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>Bayram / Dam olish kuni qo'shish</h3>
+        <button class="modal-close-btn" onclick="adminApp.closeModal('holidayModal')">&times;</button>
+      </div>
+      <form id="holidayForm">
+        <div class="form-group">
+          <label for="holidayDateInput">Sana tanlang <span class="req">*</span></label>
+          <input type="date" id="holidayDateInput" class="form-control" required>
+        </div>
+
+        <div class="form-group">
+          <label for="holidayTitleInput">Bayram nomi</label>
+          <input type="text" id="holidayTitleInput" class="form-control" placeholder="Masalan: Mustaqillik kuni">
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="adminApp.closeModal('holidayModal')">Bekor qilish</button>
+          <button type="submit" class="btn btn-primary">Qo'shish</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Confirm Delete -->
+  <div class="modal-overlay" id="confirmModal">
+    <div class="modal-box confirm-box">
+      <div class="confirm-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      </div>
+      <h3 id="confirmTitle">O'chirishni tasdiqlaysizmi?</h3>
+      <p id="confirmMessage">Bu amalni ortga qaytarib bo'lmaydi.</p>
+      <div class="modal-footer justify-center">
+        <button type="button" class="btn btn-outline" id="confirmCancelBtn">Bekor qilish</button>
+        <button type="button" class="btn btn-danger" id="confirmOkBtn">Ha, o'chirilsin</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Scripts -->
+  <script src="admin.js"></script>
+</body>
+</html>
