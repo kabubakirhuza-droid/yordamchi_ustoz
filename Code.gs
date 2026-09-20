@@ -30,12 +30,12 @@ const COURSE_SLOTS = {
 
 // Standart ustoza biriktirmalari
 const COURSE_TEACHERS_ = {
-  "Arab tili - Harf": ["Nargiza Ustoza", "Fazilat Ustoza", "Kamola Ustoza", "Risolat Ustoza"],
-  "Arab tili - Qoida": ["Nargiza Ustoza", "Fazilat Ustoza", "Kamola Ustoza", "Risolat Ustoza"],
-  "Arab tili - Amaliyot": ["Nargiza Ustoza", "Fazilat Ustoza", "Kamola Ustoza", "Risolat Ustoza"],
+  "Arab tili - Harf": ["Fazilat Ustoza", "Feruza Ustoz", "Kamola Ustoza", "Nargiza Ustoza", "Risolat Ustoza"],
+  "Arab tili - Qoida": ["Fazilat Ustoza", "Feruza Ustoz", "Kamola Ustoza", "Nargiza Ustoza", "Risolat Ustoza"],
+  "Arab tili - Amaliyot": ["Fazilat Ustoza", "Feruza Ustoz", "Kamola Ustoza", "Nargiza Ustoza", "Risolat Ustoza"],
   "Arab tili grammatikasi": ["Nargiza Ustoza"],
-  "Ingliz tili": ["Fazilat Ustoza"],
-  "Nurli Bolajon": ["Muslima Ustoza"]
+  "Ingliz tili": ["Mohinur Ustoza"],
+  "Nurli Bolajon": ["Fazilat Ustoza", "Kamola Ustoza"]
 };
 
 const TEACHER_COURSES_ = Object.keys(COURSE_TEACHERS_);
@@ -455,11 +455,12 @@ function doGet(e){
   if (action === 'get_config'){
     const cfg = getAppConfig_() || {};
     const defaultTeacherSchedule = {
-      "Nargiza Ustoza": { offDays: [0, 6], start: "08:00", end: "12:00" },
-      "Fazilat Ustoza": { offDays: [0, 6], start: "09:00", end: "13:00" },
-      "Kamola Ustoza": { offDays: [0, 6], start: "09:00", end: "17:00" },
-      "Risolat Ustoza": { offDays: [0, 6], start: "09:00", end: "17:00" },
-      "Muslima Ustoza": { offDays: [0, 1, 2, 3, 5, 6], start: "13:00", end: "17:00" }
+      "Fazilat Ustoza": { offDays: [4],    start: "09:00", end: "17:00" },
+      "Feruza Ustoz":   { offDays: [],     start: "13:00", end: "17:00" },
+      "Kamola Ustoza":  { offDays: [0, 6], start: "09:00", end: "17:00" },
+      "Mohinur Ustoza": { offDays: [],     start: "09:00", end: "12:00" },
+      "Nargiza Ustoza": { offDays: [0],    start: "09:00", end: "17:00" },
+      "Risolat Ustoza": { offDays: [0],    start: "09:00", end: "17:00" }
     };
     const defaultCourses = {
       "Arab tili - Harf":       { startHour: 9, startMin: 0, endHour: 17, endMin: 0, stepMin: 30, capacity: 4 },

@@ -52,38 +52,48 @@ function isCourseDayAllowed(kurs, date){
 
 let COURSE_TEACHERS = {
   "Arab tili - Harf": [
+    "Fazilat Ustoza",
+    "Feruza Ustoz",
+    "Kamola Ustoza",
     "Nargiza Ustoza",
-    "Fazilat Ustoza"
+    "Risolat Ustoza"
   ],
   "Arab tili - Qoida": [
+    "Fazilat Ustoza",
+    "Feruza Ustoz",
+    "Kamola Ustoza",
     "Nargiza Ustoza",
-    "Fazilat Ustoza"
+    "Risolat Ustoza"
   ],
   "Arab tili - Amaliyot": [
+    "Fazilat Ustoza",
+    "Feruza Ustoz",
+    "Kamola Ustoza",
     "Nargiza Ustoza",
-    "Fazilat Ustoza"
+    "Risolat Ustoza"
+  ],
+  "Arab tili grammatikasi": [
+    "Nargiza Ustoza"
+  ],
+  "Ingliz tili": [
+    "Mohinur Ustoza"
   ],
   "Nurli Bolajon": [
-    "Muslima Ustoza"
+    "Fazilat Ustoza",
+    "Kamola Ustoza"
   ]
 };
 let TEACHER_COURSES = Object.keys(COURSE_TEACHERS);
 
-// --- Ish jadvali (ichki, saytda ko'rsatilmaydi) ---
-// days: JS Date.getDay() bo'yicha: 0=Yak,1=Dush,2=Sesh,3=Chor,4=Pay,5=Jum,6=Shan
-const WEEKDAYS_MON_FRI = [1,2,3,4,5];
-const WEEKEND_SAT_SUN = [0,6];
-
+// --- Ish jadvali (ichki, admin panel sozlamalari bilan bir xil) ---
+// offDays: 0=Yak, 1=Dush, 2=Sesh, 3=Chor, 4=Pay, 5=Jum, 6=Shan
 let TEACHER_SCHEDULE = {
-  "Nargiza Ustoza": [
-    { days: WEEKDAYS_MON_FRI, start: "08:00", end: "12:00" }
-  ],
-  "Fazilat Ustoza": [
-    { days: WEEKDAYS_MON_FRI, start: "09:00", end: "13:00" }
-  ],
-  "Muslima Ustoza": [
-    { days: WEEKDAYS_MON_FRI, start: "13:00", end: "17:00" }
-  ]
+  "Fazilat Ustoza": { offDays: [4],    start: "09:00", end: "17:00" }, // Pay dam olish
+  "Feruza Ustoz":   { offDays: [],     start: "13:00", end: "17:00" }, // Har kuni ish
+  "Kamola Ustoza":  { offDays: [0, 6], start: "09:00", end: "17:00" }, // Yak, Shan dam olish
+  "Mohinur Ustoza": { offDays: [],     start: "09:00", end: "12:00" }, // Har kuni ish
+  "Nargiza Ustoza": { offDays: [0],    start: "09:00", end: "17:00" }, // Yak dam olish
+  "Risolat Ustoza": { offDays: [0],    start: "09:00", end: "17:00" }  // Yak dam olish
 };
 
 function timeToMinutes(t){
@@ -554,13 +564,18 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Tanlangan sana/vaqtda haqiqatda ishlaydigan ustozalar ro'yxati.
-  // Bu filtr saytda ko'rinmaydi — faqat mos keladigan ustozalar chip
-  // sifatida chiqadi, ishlamaydiganlari umuman ro'yxatga tushmaydi.
   function getAvailableTeachersForSlot(){
     if (!selectedDate || !selectedTime) return [];
-    return (COURSE_TEACHERS[selectedKurs] || []).filter((name) =>
+    const courseTeachers = COURSE_TEACHERS[selectedKurs] || [];
+    const available = courseTeachers.filter((name) =>
       isTeacherAvailable(name, selectedDate, selectedTime)
     );
+    // Agar ish jadvali sababli hech qaysi ustoza chiqmay qolsa,
+    // talabaga bo'sh qizil oyna ko'rsatmaslik uchun kursga biriktirilgan barcha ustozalarni chiqaramiz:
+    if (available.length === 0 && courseTeachers.length > 0){
+      return courseTeachers;
+    }
+    return available;
   }
 
   // --- Ustoza chips: rendering is purely visual now. Clicks are handled by a
@@ -569,7 +584,14 @@ document.addEventListener('DOMContentLoaded', () => {
   function renderUstozaOptions(){
     if (!ustozaOptions) return;
     ustozaOptions.innerHTML = '';
-    getAvailableTeachersForSlot().forEach((name) => {
+    const teachersList = getAvailableTeachersForSlot();
+
+    if (teachersList.length === 0){
+      ustozaOptions.innerHTML = `<div style="padding:10px 4px; color:var(--text-soft); font-size:0.88rem;">Ushbu vaqtda faol ustoza topilmadi. Iltimos, boshqa dars vaqtini tanlang.</div>`;
+      return;
+    }
+
+    teachersList.forEach((name) => {
       const count = teacherCounts[name] || 0;
       const isTaken = count >= teacherCapacity;
       const isSelected = selectedUstoza === name;
