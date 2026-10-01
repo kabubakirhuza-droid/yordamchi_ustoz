@@ -113,12 +113,25 @@ function currentMonthKey_(){
 function getAppConfig_(){
   try {
     const raw = PropertiesService.getScriptProperties().getProperty('APP_CONFIG');
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return (parsed && parsed.config) ? parsed.config : parsed;
+    }
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName('Sozlamalar');
-    if (sheet && sheet.getLastRow() >= 2){
-      const val = sheet.getRange(2, 1).getValue();
-      if (val) return JSON.parse(val);
+    if (sheet){
+      const zVal = sheet.getRange(1, 26).getValue();
+      if (zVal && String(zVal).trim().startsWith('{')) {
+        const parsed = JSON.parse(zVal);
+        return (parsed && parsed.config) ? parsed.config : parsed;
+      }
+      if (sheet.getLastRow() >= 2){
+        const val = sheet.getRange(2, 1).getValue();
+        if (val && String(val).trim().startsWith('{')) {
+          const parsed = JSON.parse(val);
+          return (parsed && parsed.config) ? parsed.config : parsed;
+        }
+      }
     }
   } catch (e) {}
   return null;
@@ -149,8 +162,29 @@ function getEffectiveTeachers_(kurs){
   return COURSE_TEACHERS_[kurs] || [];
 }
 
+function findMatchingSheet_(ss, kurs, monthKey){
+  const parts = monthKey.split('.');
+  const monthIdx = Number(parts[0]) - 1;
+  const year = parts[1];
+  const monthName = (UZ_MONTHS[monthIdx] || parts[0]).toLowerCase();
+  
+  const cleanKurs = kurs.trim().toLowerCase();
+  const sheets = ss.getSheets();
+  for (let i = 0; i < sheets.length; i++){
+    const name = sheets[i].getName();
+    const cleanName = name.trim().toLowerCase();
+    if (cleanName.includes(cleanKurs) && (cleanName.includes(monthName) || cleanName.includes(parts[0])) && cleanName.includes(year)){
+      return sheets[i];
+    }
+  }
+  return null;
+}
+
 function getOrCreateCourseSheet_(kurs, monthKey){
   const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const existing = findMatchingSheet_(ss, kurs, monthKey);
+  if (existing) return existing;
+
   const sheetName = sheetNameFor_(kurs, monthKey);
   let sheet = ss.getSheetByName(sheetName);
   if (sheet) return sheet;
@@ -171,6 +205,56 @@ function getOrCreateCourseSheet_(kurs, monthKey){
   sheet.setFrozenColumns(TIME_COL);
 
   return sheet;
+}
+
+function normalizeTimeStr_(val){
+  if (!val && val !== 0) return "";
+  if (Object.prototype.toString.call(val) === '[object Date]'){
+    return Utilities.formatDate(val, Session.getScriptTimeZone(), 'HH:mm');
+  }
+  const str = String(val || '').trim();
+  const match = str.match(/^(\d{1,2}):(\d{2})/);
+  if (match) {
+    return Utilities.formatString('%02d:%s', Number(match[1]), match[2]);
+  }
+  return str;
+}
+
+function findTimeRow_(sheetOrKurs, kursOrVaqt, maybeVaqt){
+  let targetSheet = null;
+  let kurs = "";
+  let vaqt = "";
+
+  if (sheetOrKurs && typeof sheetOrKurs === 'object' && typeof sheetOrKurs.getLastRow === 'function'){
+    targetSheet = sheetOrKurs;
+    kurs = kursOrVaqt || "";
+    vaqt = maybeVaqt || "";
+  } else {
+    kurs = sheetOrKurs || "";
+    vaqt = kursOrVaqt || "";
+  }
+
+  const cleanVaqt = normalizeTimeStr_(vaqt);
+
+  if (targetSheet){
+    const lastRow = targetSheet.getLastRow();
+    if (lastRow >= FIRST_TIME_ROW){
+      const timeVals = targetSheet.getRange(FIRST_TIME_ROW, TIME_COL, lastRow - FIRST_TIME_ROW + 1, 1).getValues();
+      for (let i = 0; i < timeVals.length; i++){
+        if (normalizeTimeStr_(timeVals[i][0]) === cleanVaqt){
+          return FIRST_TIME_ROW + i;
+        }
+      }
+    }
+  }
+
+  const slots = getEffectiveSlots_(kurs);
+  for (let i = 0; i < slots.length; i++){
+    if (normalizeTimeStr_(slots[i]) === cleanVaqt){
+      return FIRST_TIME_ROW + i;
+    }
+  }
+  return null;
 }
 
 function getOrCreateDateColumn_(sheet, sanaStr, dowLabel){
@@ -216,12 +300,6 @@ function getOrCreateDateColumn_(sheet, sanaStr, dowLabel){
   return insertCol;
 }
 
-function findTimeRow_(kurs, vaqt){
-  const slots = getEffectiveSlots_(kurs);
-  const idx = slots.indexOf(vaqt);
-  return idx === -1 ? null : FIRST_TIME_ROW + idx;
-}
-
 function getTeacherCounts_(kurs, sana, vaqt){
   const counts = {};
   const courseTeachers = getEffectiveTeachers_(kurs);
@@ -245,7 +323,7 @@ function getTeacherCounts_(kurs, sana, vaqt){
   }
   if (dateCol === -1) return counts;
 
-  const timeRow = findTimeRow_(kurs, vaqt);
+  const timeRow = findTimeRow_(sheet, kurs, vaqt);
   if (!timeRow) return counts;
 
   const cellValue = sheet.getRange(timeRow, dateCol).getValue();
@@ -398,15 +476,151 @@ function getAllBookings_(){
 }
 
 function saveConfig_(data){
-  PropertiesService.getScriptProperties().setProperty('APP_CONFIG', JSON.stringify(data));
+  let cfg = (data && data.config) ? data.config : data;
+  if (cfg && cfg.config) cfg = cfg.config;
+
+  // 1. Script properties ga toza JSON saqlash
+  PropertiesService.getScriptProperties().setProperty('APP_CONFIG', JSON.stringify(cfg));
+
+  // 2. Sozlamalar varag'ini chiroyli jadval qilib to'ldirish
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sheet = ss.getSheetByName('Sozlamalar');
   if (!sheet){
     sheet = ss.insertSheet('Sozlamalar');
-    sheet.getRange(1, 1).setValue("ADMIN PANEL SOZLAMALARI (JSON FORMAT)");
-    sheet.getRange(1, 1).setFontWeight('bold');
   }
-  sheet.getRange(2, 1).setValue(JSON.stringify(data, null, 2));
+
+  renderSettingsSheet_(sheet, cfg);
+
+  // 3. Avtomatik ravishda barcha kurslar uchun oylik jadvallarni (varaq / tab) yaratish
+  try {
+    const curMonth = currentMonthKey_();
+    let coursesList = [];
+    if (cfg && cfg.courses) {
+      if (Array.isArray(cfg.courses)) {
+        coursesList = cfg.courses.map(c => typeof c === 'string' ? c : (c.name || '')).filter(Boolean);
+      } else if (typeof cfg.courses === 'object') {
+        coursesList = Object.keys(cfg.courses);
+      }
+    }
+    if (coursesList.length === 0) {
+      coursesList = Object.keys(COURSE_SLOTS);
+    }
+
+    coursesList.forEach(function(kursName) {
+      if (kursName && String(kursName).trim()) {
+        getOrCreateCourseSheet_(String(kursName).trim(), curMonth);
+      }
+    });
+  } catch (sheetErr) {
+    Logger.log("Error creating course sheets: " + sheetErr);
+  }
+}
+
+function renderSettingsSheet_(sheet, cfg){
+  sheet.clear();
+  sheet.clearFormats();
+
+  // Bosh sarlavha
+  sheet.getRange(1, 1).setValue("ZIN-NUR AKADEMIYASI — ASOSIY SOZLAMALAR");
+  sheet.getRange(1, 1, 1, 7).merge();
+  sheet.getRange(1, 1).setBackground("#1b5e20").setFontColor("#ffffff").setFontWeight("bold").setFontSize(13).setHorizontalAlignment("center");
+  sheet.setRowHeight(1, 35);
+
+  let curRow = 3;
+
+  // 1. KURSLAR RO'YXATI
+  sheet.getRange(curRow, 1).setValue("1. KURSLAR VA DARS VAQTLARI");
+  sheet.getRange(curRow, 1, 1, 7).merge();
+  sheet.getRange(curRow, 1).setBackground("#e8f5e9").setFontWeight("bold").setFontSize(11);
+  curRow++;
+
+  const courseHeaders = ["#", "Kurs nomi", "Boshlanish", "Tugash", "Qadam (daq)", "Sig'imi (nafar)", "Holati"];
+  sheet.getRange(curRow, 1, 1, courseHeaders.length).setValues([courseHeaders]);
+  sheet.getRange(curRow, 1, 1, courseHeaders.length).setBackground("#c8e6c9").setFontWeight("bold").setHorizontalAlignment("center");
+  curRow++;
+
+  let courses = [];
+  if (cfg && cfg.courses) {
+    if (Array.isArray(cfg.courses)) {
+      courses = cfg.courses;
+    } else if (typeof cfg.courses === 'object') {
+      courses = Object.entries(cfg.courses).map(([name, c]) => ({
+        name: name,
+        startTime: (c.startHour ? Utilities.formatString('%02d:%02d', c.startHour, c.startMin||0) : '09:00'),
+        endTime: (c.endHour ? Utilities.formatString('%02d:%02d', c.endHour, c.endMin||0) : '17:00'),
+        slotDuration: c.stepMin || 30,
+        capacity: c.capacity || 4,
+        active: true
+      }));
+    }
+  }
+
+  if (courses.length > 0) {
+    const courseRows = courses.map((c, i) => [
+      i + 1,
+      typeof c === 'string' ? c : (c.name || ''),
+      c.startTime || '09:00',
+      c.endTime || '17:00',
+      c.slotDuration || 30,
+      c.capacity || 4,
+      c.active !== false ? "Faol" : "Nofaol"
+    ]);
+    sheet.getRange(curRow, 1, courseRows.length, courseHeaders.length).setValues(courseRows);
+    sheet.getRange(curRow, 1, courseRows.length, courseHeaders.length).setHorizontalAlignment("center");
+    sheet.getRange(curRow, 2, courseRows.length, 1).setHorizontalAlignment("left");
+    curRow += courseRows.length;
+  } else {
+    sheet.getRange(curRow, 1, 1, courseHeaders.length).setValue("Kurslar kiritilmagan");
+    curRow++;
+  }
+
+  curRow += 2;
+
+  // 2. USTOZALAR RO'YXATI
+  sheet.getRange(curRow, 1).setValue("2. USTOZALAR RO'YXATI");
+  sheet.getRange(curRow, 1, 1, 6).merge();
+  sheet.getRange(curRow, 1).setBackground("#e8f5e9").setFontWeight("bold").setFontSize(11);
+  curRow++;
+
+  const teacherHeaders = ["#", "Ustoza F.I.SH", "Telefon / Login", "PIN kod", "Biriktirilgan kurslar", "Ish vaqti"];
+  sheet.getRange(curRow, 1, 1, teacherHeaders.length).setValues([teacherHeaders]);
+  sheet.getRange(curRow, 1, 1, teacherHeaders.length).setBackground("#c8e6c9").setFontWeight("bold").setHorizontalAlignment("center");
+  curRow++;
+
+  let teachers = [];
+  if (cfg && Array.isArray(cfg.teachers)) {
+    teachers = cfg.teachers;
+  }
+
+  if (teachers.length > 0) {
+    const teacherRows = teachers.map((t, i) => [
+      i + 1,
+      t.name || '',
+      t.phone || t.login || '',
+      t.pin || '',
+      Array.isArray(t.courses) ? t.courses.join(', ') : '',
+      `${t.startTime || '09:00'} — ${t.endTime || '17:00'}`
+    ]);
+    sheet.getRange(curRow, 1, teacherRows.length, teacherHeaders.length).setValues(teacherRows);
+    sheet.getRange(curRow, 1, teacherRows.length, teacherHeaders.length).setHorizontalAlignment("center");
+    sheet.getRange(curRow, 2, teacherRows.length, 1).setHorizontalAlignment("left");
+    curRow += teacherRows.length;
+  } else {
+    sheet.getRange(curRow, 1, 1, teacherHeaders.length).setValue("Hozircha ustozalar yo'q");
+    curRow++;
+  }
+
+  // Ustunlar kengligini chiroyli moslash
+  sheet.setColumnWidth(1, 45);
+  sheet.setColumnWidth(2, 220);
+  sheet.setColumnWidth(3, 140);
+  sheet.setColumnWidth(4, 110);
+  sheet.setColumnWidth(5, 260);
+  sheet.setColumnWidth(6, 140);
+  sheet.setColumnWidth(7, 100);
+
+  // Tizim uchun zaxira JSON ni Z1 ga yozish
+  sheet.getRange(1, 26).setValue(JSON.stringify(cfg));
 }
 
 function deleteBooking_(id){
@@ -452,7 +666,7 @@ function doGet(e){
   }
 
   // 2. Admin Panel & Sayt: Konfiguratsiya va sozlamalarni olish
-  if (action === 'get_config'){
+  if (action === 'get_config' || action === 'getConfig'){
     const cfg = getAppConfig_() || {};
     const defaultTeacherSchedule = {
       "Fazilat Ustoza": { offDays: [4],    start: "09:00", end: "17:00" },
@@ -472,6 +686,8 @@ function doGet(e){
     };
 
     return jsonOutput_({
+      config: cfg,
+      teachers: cfg.teachers || [],
       courses: cfg.courses || defaultCourses,
       courseTeachers: cfg.courseTeachers || COURSE_TEACHERS_,
       teacherSchedule: cfg.teacherSchedule || defaultTeacherSchedule,
@@ -565,7 +781,7 @@ function doPost(e){
   }
 
   // 1. Admin Panel: Sozlamalarni saqlash
-  if (data.action === 'save_config'){
+  if (data.action === 'save_config' || data.action === 'saveConfig'){
     try {
       saveConfig_(data);
       return jsonOutput_({ success: true, message: "Sozlamalar muvaffaqiyatli saqlandi" });
@@ -613,18 +829,6 @@ function doPost(e){
     return jsonOutput_({ success: false, error: 'unknown_course', kurs: kurs });
   }
 
-  const courseTeachers = getEffectiveTeachers_(kurs);
-  if (courseTeachers && courseTeachers.length > 0){
-    if (!ustoza || courseTeachers.indexOf(ustoza) === -1){
-      return jsonOutput_({ success: false, error: 'missing_ustoza' });
-    }
-  }
-
-  const timeRow = findTimeRow_(kurs, vaqt);
-  if (!timeRow){
-    return jsonOutput_({ success: false, error: 'unknown_time', vaqt: vaqt, kurs: kurs });
-  }
-
   const monthKey = monthKeyFromDateStr_(sana);
   if (!monthKey){
     return jsonOutput_({ success: false, error: 'invalid_date', sana: sana });
@@ -644,6 +848,11 @@ function doPost(e){
     }
 
     const sheet = getOrCreateCourseSheet_(kurs, monthKey);
+    const timeRow = findTimeRow_(sheet, kurs, vaqt);
+    if (!timeRow){
+      return jsonOutput_({ success: false, error: 'unknown_time', vaqt: vaqt, kurs: kurs });
+    }
+
     const dateCol = getOrCreateDateColumn_(sheet, sana, dowLabel);
     const cell = sheet.getRange(timeRow, dateCol);
 
