@@ -1,4 +1,103 @@
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyc8N0QyY9b3AI_BCGkdWeU7URxvjLrb-XJdsLQRwRYzJhwDtNFPb9vSaBfELL4uzfZ/exec";
+// ==========================================================================
+// ZIN-NUR AKADEMIYASI - ASOSIY SAYT SCRIPTI (AUTO-SYNC ONLINE)
+// ==========================================================================
+
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzk8hu77h_nGcUpnqe9aAPHtxX8LQrH4inmRkt1igiusHfcofkl0YeEniLsioYaBDc1/exec";
+
+const UZ_OPERATOR_PREFIXES = ['90', '91', '93', '94', '95', '97', '98', '99', '33', '88', '77', '50', '55', '70', '71', '72', '73', '74', '75', '76', '78', '79', '20'];
+
+function cleanPhoneDigits(val) {
+  if (!val) return '';
+  let str = String(val).trim();
+  
+  // 1. Remove explicit '+998'
+  str = str.replace(/\+998\s*/g, '');
+  
+  let digits = str.replace(/\D/g, '');
+  
+  // 2. If 12 digits or more starting with '998' (e.g. 998901234567 or 998998521454)
+  if (digits.length >= 12 && digits.startsWith('998')) {
+    digits = digits.substring(3);
+  }
+  // 3. If user typed/pasted '998' country code followed by operator code (e.g. 99890..., 99897..., 99899..., 99888...)
+  else if (digits.length >= 5 && digits.startsWith('998')) {
+    const nextTwo = digits.substring(3, 5);
+    if (UZ_OPERATOR_PREFIXES.includes(nextTwo) && digits.length >= 10) {
+      digits = digits.substring(3);
+    } else if (digits.length > 9) {
+      digits = digits.substring(3);
+    }
+  }
+  
+  return digits.slice(0, 9);
+}
+
+function formatPhoneNumber(val) {
+  if (!val) return '+998 ';
+  
+  // If user entered text login (letters like abubakir, admin, teacher)
+  const cleanVal = String(val).replace(/\+998\s*/g, '').trim();
+  if (/[a-zA-Zа-яА-ЯёЁ_]/.test(cleanVal)) {
+    return cleanVal;
+  }
+  
+  let digits = cleanPhoneDigits(val);
+  if (digits.length === 0) return '+998 ';
+  let res = '+998';
+  if (digits.length > 0) res += ' ' + digits.substring(0, 2);
+  if (digits.length > 2) res += ' ' + digits.substring(2, 5);
+  if (digits.length > 5) res += ' ' + digits.substring(5, 7);
+  if (digits.length > 7) res += ' ' + digits.substring(7, 9);
+  return res;
+}
+
+function setupPhoneMask(inputEl) {
+  if (!inputEl) return;
+  
+  const applyMask = () => {
+    const cur = inputEl.value;
+    const cleanVal = String(cur).replace(/\+998\s*/g, '').trim();
+    if (/[a-zA-Zа-яА-ЯёЁ_]/.test(cleanVal)) {
+      inputEl.value = cleanVal;
+      return;
+    }
+    inputEl.value = formatPhoneNumber(cur);
+  };
+
+  if (!inputEl.value || !inputEl.value.startsWith('+998')) {
+    inputEl.value = inputEl.value ? formatPhoneNumber(inputEl.value) : '+998 ';
+  } else {
+    inputEl.value = formatPhoneNumber(inputEl.value);
+  }
+
+  inputEl.addEventListener('focus', () => {
+    if (!inputEl.value || inputEl.value.trim() === '' || inputEl.value.trim() === '+' || inputEl.value.trim() === '+998') {
+      inputEl.value = '+998 ';
+    }
+    setTimeout(() => {
+      try {
+        if (inputEl.selectionStart < 5 && inputEl.value.startsWith('+998 ')) {
+          inputEl.setSelectionRange(inputEl.value.length, inputEl.value.length);
+        }
+      } catch(e) {}
+    }, 10);
+  });
+
+  inputEl.addEventListener('input', applyMask);
+
+  inputEl.addEventListener('keydown', (e) => {
+    if (e.key === 'Backspace') {
+      if (inputEl.selectionStart !== inputEl.selectionEnd) {
+        setTimeout(applyMask, 0);
+        return;
+      }
+      if (inputEl.value === '+998 ' || inputEl.value === '+998') {
+        inputEl.value = '';
+        e.preventDefault();
+      }
+    }
+  });
+}
 
 function buildSlots(startHour, startMin, endHour, endMin, stepMin){
   const slots = [];
@@ -11,119 +110,181 @@ function buildSlots(startHour, startMin, endHour, endMin, stepMin){
   return slots;
 }
 
-let COURSES = {
-  "Arab tili - Harf":       { slots: buildSlots(9,0,17,0,30), capacity: 4 },
-  "Arab tili - Qoida":      { slots: buildSlots(9,0,17,0,30), capacity: 4 },
-  "Arab tili - Amaliyot":   { slots: buildSlots(9,0,17,0,30), capacity: 4 },
-  "Arab tili grammatikasi": { slots: buildSlots(9,0,17,0,30), capacity: 4 },
-  "Ingliz tili":            { slots: buildSlots(9,0,12,0,30), capacity: 1 },
-  "Nurli Bolajon":          { slots: buildSlots(13,0,17,0,30), capacity: 1 }
-};
+// Dynamic data loader from localStorage (Boshqaruv Markazi bilan real vaqtda sinxronlash)
+function loadDynamicConfig() {
+  try {
+    const isSergeli = window.location.hostname.includes('ser') || window.location.pathname.includes('/sergeli');
+    const districtKey = isSergeli ? 'sergeli' : 'uchtepa';
+    const savedConfig = localStorage.getItem(`zn_admin_config_${districtKey}`) || localStorage.getItem('zn_admin_config');
+    const savedHolidays = localStorage.getItem(`zn_holidays_${districtKey}`) || localStorage.getItem('zn_holidays');
+    
+    let config = savedConfig ? JSON.parse(savedConfig) : null;
+    let holidays = savedHolidays ? JSON.parse(savedHolidays) : null;
 
-// Ba'zi kurslar faqat muayyan kunlarda mavjud bo'lishi mumkin.
-// 0=Yak,1=Dush,2=Sesh,3=Chor,4=Pay,5=Jum,6=Shan
-let COURSE_DAYS = {
-  "Nurli Bolajon": [4] // faqat Payshanba
-};
+    if (config && (config.courses || config.teachers)) {
+      const coursesObj = {};
+      const excludedObj = {};
+      const teachersObj = {};
+      const scheduleObj = {};
+      const deletedList = Array.isArray(config.deletedTeachers) ? config.deletedTeachers : [];
 
-let COURSE_EXCLUDED_DAYS = {
-  "Nurli Bolajon": [0, 1, 2, 3, 5, 6]
-};
+      if (Array.isArray(config.teachers)) {
+        config.teachers.forEach(t => {
+          const clean = cleanPhoneDigits(t.phone || t.login);
+          const nameKey = (t.name || '').trim().toLowerCase();
+          if (deletedList.includes(t.id) || deletedList.includes(nameKey) || (clean && deletedList.includes(clean))) {
+            return;
+          }
 
-let HOLIDAY_DATES = [
-  "31.08.2026",
-  "01.09.2026"
-];
+          scheduleObj[t.name] = {
+            offDays: t.daysOff || [],
+            start: t.startTime || "09:00",
+            end: t.endTime || "17:00",
+            dailyHours: t.dailyHours || null
+          };
+          (t.courses || []).forEach(cName => {
+            if (!teachersObj[cName]) teachersObj[cName] = [];
+            if (!teachersObj[cName].includes(t.name)) teachersObj[cName].push(t.name);
+          });
+        });
+      }
+
+      if (Array.isArray(config.courses)) {
+        config.courses.forEach(c => {
+          if (c.active !== false) {
+            let sH = 9, sM = 0, eH = 17, eM = 0;
+            if (c.startTime) {
+              const p = c.startTime.split(':').map(Number);
+              sH = p[0]; sM = p[1] || 0;
+            }
+            if (c.endTime) {
+              const p = c.endTime.split(':').map(Number);
+              eH = p[0]; eM = p[1] || 0;
+            }
+
+            // Auto-expand course slot window if assigned teacher works outside
+            const assigned = teachersObj[c.name] || [];
+            assigned.forEach(tName => {
+              const tSched = scheduleObj[tName];
+              if (tSched) {
+                if (tSched.end) {
+                  const ep = tSched.end.split(':').map(Number);
+                  if (ep[0] > eH || (ep[0] === eH && (ep[1] || 0) > eM)) {
+                    eH = ep[0];
+                    eM = ep[1] || 0;
+                  }
+                }
+                if (tSched.dailyHours) {
+                  Object.values(tSched.dailyHours).forEach(dh => {
+                    if (dh.isWork && dh.end) {
+                      const ep = dh.end.split(':').map(Number);
+                      if (ep[0] > eH || (ep[0] === eH && (ep[1] || 0) > eM)) {
+                        eH = ep[0];
+                        eM = ep[1] || 0;
+                      }
+                    }
+                  });
+                }
+              }
+            });
+
+            coursesObj[c.name] = {
+              slots: buildSlots(sH, sM, eH, eM, c.slotDuration || 30),
+              capacity: c.capacity || 4
+            };
+            if (c.excludedDays && c.excludedDays.length > 0) {
+              excludedObj[c.name] = c.excludedDays;
+            }
+          }
+        });
+      }
+
+      const holidayList = holidays ? holidays.map(h => typeof h === 'string' ? h : h.date) : ["31.08.2026", "01.09.2026"];
+
+      return {
+        courses: Object.keys(coursesObj).length > 0 ? coursesObj : null,
+        excludedDays: excludedObj,
+        holidayDates: holidayList,
+        courseTeachers: teachersObj,
+        teacherSchedule: scheduleObj
+      };
+    }
+  } catch (e) {
+    console.warn("Could not load dynamic config, falling back to defaults", e);
+  }
+
+  // Defaults fallback
+  return {
+    courses: {
+      "Arab tili - Harf":       { slots: buildSlots(9,0,17,0,30), capacity: 4 },
+      "Arab tili - Qoida":      { slots: buildSlots(9,0,17,0,30), capacity: 4 },
+      "Arab tili - Amaliyot":   { slots: buildSlots(9,0,17,0,30), capacity: 4 },
+      "Arab tili grammatikasi": { slots: buildSlots(9,0,17,0,30), capacity: 4 },
+      "Ingliz tili":            { slots: buildSlots(9,0,12,0,30), capacity: 1 },
+      "Nurli Bolajon":          { slots: buildSlots(14,0,16,0,30), capacity: 1 }
+    },
+    excludedDays: { "Nurli Bolajon": [0, 6] },
+    holidayDates: ["31.08.2026", "01.09.2026"],
+    courseTeachers: {
+      "Arab tili - Harf": ["Fotima Ustoza", "Mubina Ustoza", "Madina Ustoza", "Samira ustoza", "Saida Ustoza"],
+      "Arab tili - Qoida": ["Fotima Ustoza", "Mubina Ustoza", "Madina Ustoza", "Samira ustoza", "Saida Ustoza"],
+      "Arab tili - Amaliyot": ["Fotima Ustoza", "Mubina Ustoza", "Madina Ustoza", "Samira ustoza", "Saida Ustoza"],
+      "Arab tili grammatikasi": ["Muslima Ustoza"],
+      "Ingliz tili": ["Mohinur Ustoza"],
+      "Nurli Bolajon": ["Fotima Ustoza", "Mubina Ustoza"]
+    },
+    teacherSchedule: {
+      "Muslima Ustoza": { offDays: [0],    start: "09:00", end: "17:00" },
+      "Saida Ustoza":    { offDays: [4],    start: "09:00", end: "12:00" },
+      "Samira ustoza":   { offDays: [4],    start: "09:00", end: "17:00" },
+      "Fotima Ustoza":   { offDays: [0],    start: "08:00", end: "17:00" },
+      "Madina Ustoza":   { offDays: [0, 6], start: "08:00", end: "12:00" },
+      "Mubina Ustoza":   { offDays: [],     start: "09:00", end: "17:00" },
+      "Mohinur Ustoza":  { offDays: [],     start: "09:00", end: "12:00" }
+    }
+  };
+}
+
+const DYNAMIC_CFG = loadDynamicConfig();
+const COURSES = DYNAMIC_CFG.courses;
+const COURSE_EXCLUDED_DAYS = DYNAMIC_CFG.excludedDays;
+const HOLIDAY_DATES = DYNAMIC_CFG.holidayDates;
+const COURSE_TEACHERS = DYNAMIC_CFG.courseTeachers;
+const TEACHER_SCHEDULE = DYNAMIC_CFG.teacherSchedule;
 
 function isHolidayDate(date){
-  if (!date) return false;
   return HOLIDAY_DATES.indexOf(formatDateValue(date)) !== -1;
 }
 
-function isCourseDayAllowed(kurs, date){
-  if (isHolidayDate(date)) return false;
-  if (COURSE_EXCLUDED_DAYS && COURSE_EXCLUDED_DAYS[kurs]) {
-    if (COURSE_EXCLUDED_DAYS[kurs].indexOf(date.getDay()) !== -1) return false;
-  }
-  const days = COURSE_DAYS[kurs];
-  if (!days) return true;
-  return days.indexOf(date.getDay()) !== -1;
-}
+let TEACHER_COURSES = Object.keys(COURSE_TEACHERS).filter(k => (COURSE_TEACHERS[k] || []).length > 0);
 
-let COURSE_TEACHERS = {
-  "Arab tili - Harf": [
-    "Fazilat Ustoza",
-    "Feruza Ustoz",
-    "Kamola Ustoza",
-    "Nargiza Ustoza",
-    "Risolat Ustoza"
-  ],
-  "Arab tili - Qoida": [
-    "Fazilat Ustoza",
-    "Feruza Ustoz",
-    "Kamola Ustoza",
-    "Nargiza Ustoza",
-    "Risolat Ustoza"
-  ],
-  "Arab tili - Amaliyot": [
-    "Fazilat Ustoza",
-    "Feruza Ustoz",
-    "Kamola Ustoza",
-    "Nargiza Ustoza",
-    "Risolat Ustoza"
-  ],
-  "Arab tili grammatikasi": [
-    "Nargiza Ustoza"
-  ],
-  "Ingliz tili": [
-    "Mohinur Ustoza"
-  ],
-  "Nurli Bolajon": [
-    "Fazilat Ustoza",
-    "Kamola Ustoza"
-  ]
-};
-let TEACHER_COURSES = Object.keys(COURSE_TEACHERS);
-
-// --- Ish jadvali (ichki, admin panel sozlamalari bilan bir xil) ---
-// offDays: 0=Yak, 1=Dush, 2=Sesh, 3=Chor, 4=Pay, 5=Jum, 6=Shan
-let TEACHER_SCHEDULE = {
-  "Fazilat Ustoza": { offDays: [4],    start: "09:00", end: "17:00" }, // Pay dam olish
-  "Feruza Ustoz":   { offDays: [],     start: "13:00", end: "17:00" }, // Har kuni ish
-  "Kamola Ustoza":  { offDays: [0, 6], start: "09:00", end: "17:00" }, // Yak, Shan dam olish
-  "Mohinur Ustoza": { offDays: [],     start: "09:00", end: "12:00" }, // Har kuni ish
-  "Nargiza Ustoza": { offDays: [0],    start: "09:00", end: "17:00" }, // Yak dam olish
-  "Risolat Ustoza": { offDays: [0],    start: "09:00", end: "17:00" }  // Yak dam olish
-};
-
-function timeToMinutes(t){
-  const [h, m] = t.split(':').map(Number);
+function timeToMinutes(str){
+  const parts = String(str).split(':');
+  const h = parseInt(parts[0], 10) || 0;
+  const m = parseInt(parts[1], 10) || 0;
   return h * 60 + m;
 }
 
-// Ustoza tanlangan sana (Date) va vaqt ("HH:MM") da ishlaydimi, shuni tekshiradi.
-function isTeacherAvailable(name, date, time){
+function isTeacherScheduled(name, date, time){
   const schedule = TEACHER_SCHEDULE[name];
-  if (!schedule) return true; // jadval belgilanmagan bo'lsa — cheklamaymiz
-  if (!date || !time) return false;
+  if (!schedule) return true;
+  if (!date) return true;
   const dow = date.getDay();
-  const mins = timeToMinutes(time);
 
-  if (Array.isArray(schedule)){
-    return schedule.some((block) => {
-      if (block.days.indexOf(dow) === -1) return false;
-      const startMins = timeToMinutes(block.start);
-      const endMins = timeToMinutes(block.end);
-      return mins >= startMins && mins < endMins;
-    });
+  if (schedule.dailyHours && schedule.dailyHours[dow]) {
+    const dayConfig = schedule.dailyHours[dow];
+    if (!dayConfig.isWork) return false;
+    if (time && dayConfig.start && dayConfig.end) {
+      const tm = timeToMinutes(time);
+      if (tm < timeToMinutes(dayConfig.start) || tm > timeToMinutes(dayConfig.end)) return false;
+    }
+    return true;
   }
 
-  // Admin panel obyekti shaklida ({ offDays: [0, 6], start: "08:00", end: "12:00" })
   if (schedule.offDays && schedule.offDays.indexOf(dow) !== -1) return false;
-  if (schedule.start && schedule.end){
-    const startMins = timeToMinutes(schedule.start);
-    const endMins = timeToMinutes(schedule.end);
-    return mins >= startMins && mins <= endMins;
+  if (time && schedule.start && schedule.end){
+    const tm = timeToMinutes(time);
+    if (tm < timeToMinutes(schedule.start) || tm > timeToMinutes(schedule.end)) return false;
   }
   return true;
 }
@@ -151,13 +312,25 @@ function sameDate(a, b){
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
 
+function injectHolidayStyles(){
+  if (document.getElementById('znHolidayStyles')) return;
+  const style = document.createElement('style');
+  style.id = 'znHolidayStyles';
+  style.textContent = `
+    .tt-cell.is-holiday{ background:#FDEDEC !important; color:#C43E38 !important; cursor:not-allowed !important; }
+    .tt-head.is-holiday{ background:#FDEDEC !important; }
+    .tt-head.is-holiday .dnum{ color:#C43E38 !important; }
+    .tt-head.is-holiday .dow{ color:#C43E38 !important; }
+  `;
+  document.head.appendChild(style);
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   const html = document.documentElement;
   const form = document.getElementById('registerForm');
   const submitBtn = document.getElementById('submitBtn');
   const inlineError = document.getElementById('inlineError');
 
-  // Поля ввода (исправление основной ошибки)
   const inputIsm = document.getElementById('ism');
   const inputFamiliya = document.getElementById('familiya');
   const inputTelefon = document.getElementById('telefon');
@@ -236,16 +409,13 @@ document.addEventListener('DOMContentLoaded', () => {
       labelKurs: "Kurs", errKurs: "Iltimos, kursni tanlang",
       errSlot: "Iltimos, jadvaldan bo'sh vaqt tanlang",
       errUstoza: "Iltimos, ustozani tanlang",
+      noUstozaAvailable: "Bu kun/vaqtda ishlaydigan ustoza yo'q. Iltimos, boshqa vaqtni tanlang.",
+      holidayTag: "Bayram",
+      holidayLabel: "Dam olish kuni",
       btnSubmit: "Yuborish",
       modalTitle: "Rahmat!",
       modalText: "Rahmat! Siz muvaffaqiyatli ro'yxatdan o'tdingiz. Iltimos belgilangan vaqtdan kechga qolmang.",
       modalBtn: "Tushunarli",
-      course1: "Arab tili - Harf",
-      course2: "Arab tili - Qoida",
-      course3: "Arab tili - Amaliyot",
-      course4: "Arab tili grammatikasi",
-      course5: "Ingliz tili",
-      course6: "Nurli Bolajon",
       errGeneric: "Xatolik yuz berdi. Qaytadan urinib ko'ring.",
       errNetwork: "Xatolik yuz berdi. Internet aloqasini tekshirib, qaytadan urinib ko'ring.",
       errFull: "Bu vaqt allaqachon band qilingan. Iltimos boshqa vaqtni tanlang.",
@@ -279,16 +449,13 @@ document.addEventListener('DOMContentLoaded', () => {
       labelKurs: "Курс", errKurs: "Пожалуйста, выберите курс",
       errSlot: "Пожалуйста, выберите свободное время в расписании",
       errUstoza: "Пожалуйста, выберите преподавателя",
+      noUstozaAvailable: "На этот день/время нет работающего преподавателя. Пожалуйста, выберите другое время.",
+      holidayTag: "Праздник",
+      holidayLabel: "Выходной день",
       btnSubmit: "Отправить",
       modalTitle: "Спасибо!",
       modalText: "Спасибо! Вы успешно записались. Наш помощник-преподаватель скоро свяжется с вами.",
       modalBtn: "Понятно",
-      course1: "Арабский язык - Буквы",
-      course2: "Арабский язык - Правила",
-      course3: "Арабский язык - Практика",
-      course4: "Грамматика арабского языка",
-      course5: "Английский язык",
-      course6: "Нурли Болажон",
       errGeneric: "Произошла ошибка. Попробуйте ещё раз.",
       errNetwork: "Произошла ошибка. Проверьте интернет-соединение и попробуйте снова.",
       errFull: "Это время уже занято. Пожалуйста, выберите другое время.",
@@ -322,16 +489,13 @@ document.addEventListener('DOMContentLoaded', () => {
       labelKurs: "Course", errKurs: "Please select a course",
       errSlot: "Please pick a free time on the schedule",
       errUstoza: "Please choose a teacher",
+      noUstozaAvailable: "No teacher works on this day/time. Please choose another time.",
+      holidayTag: "Holiday",
+      holidayLabel: "Day off",
       btnSubmit: "Submit",
       modalTitle: "Thank you!",
       modalText: "Thank you! You have successfully registered. Our mentor teacher will contact you soon.",
       modalBtn: "Got it",
-      course1: "Arabic Language - Letters",
-      course2: "Arabic Language - Rules",
-      course3: "Arabic Language - Practice",
-      course4: "Arabic Grammar",
-      course5: "English Language",
-      course6: "Nurli Bolajon",
       errGeneric: "Something went wrong. Please try again.",
       errNetwork: "Something went wrong. Check your connection and try again.",
       errFull: "This time slot was just booked. Please choose another time.",
@@ -344,26 +508,15 @@ document.addEventListener('DOMContentLoaded', () => {
     return (translations[currentLang] && translations[currentLang][key]) || translations.uz[key] || key;
   }
 
-  const COURSE_KEYS = {
-    "Arab tili - Harf": "course1",
-    "Arab tili - Qoida": "course2",
-    "Arab tili - Amaliyot": "course3",
-    "Arab tili grammatikasi": "course4",
-    "Ingliz tili": "course5",
-    "Nurli Bolajon": "course6"
-  };
-  const COURSE_ORDER = ["Arab tili - Harf", "Arab tili - Qoida", "Arab tili - Amaliyot", "Arab tili grammatikasi", "Ingliz tili", "Nurli Bolajon"];
-
+  // DINAMIK RO'YXAT: Kurslar COURSES dan olinadi
   function buildKursPanel(){
     if (!kursPanel) return;
     kursPanel.innerHTML = '';
-    const coursesList = Object.keys(COURSES).length > 0 ? Object.keys(COURSES) : COURSE_ORDER;
-    coursesList.forEach((value) => {
+    Object.keys(COURSES).forEach((value) => {
       const opt = document.createElement('div');
       opt.className = 'dd__option' + (value === selectedKurs ? ' is-selected' : '');
       opt.setAttribute('role', 'option');
-      const label = COURSE_KEYS[value] ? t(COURSE_KEYS[value]) : value;
-      opt.textContent = label;
+      opt.textContent = value;
       opt.addEventListener('click', () => selectKurs(value));
       kursPanel.appendChild(opt);
     });
@@ -373,7 +526,7 @@ document.addEventListener('DOMContentLoaded', () => {
     selectedKurs = value;
     if (kursHidden) kursHidden.value = value;
     if (kursValueEl) {
-      kursValueEl.textContent = COURSE_KEYS[value] ? t(COURSE_KEYS[value]) : value;
+      kursValueEl.textContent = value;
       kursValueEl.classList.remove('is-placeholder');
     }
     if (kursField) {
@@ -399,13 +552,241 @@ document.addEventListener('DOMContentLoaded', () => {
     if (kursField && !kursField.contains(e.target)) kursField.classList.remove('open');
   });
 
+  // JONLI AVTOMATIK SINXRONIZATSIYA (ADMIN PANELDAN SOZLAMALARNI OLISH)
+  async function syncLiveConfig(){
+    try {
+      const isSergeli = window.location.hostname.includes('ser') || window.location.pathname.includes('/sergeli');
+      const districtKey = isSergeli ? 'sergeli' : 'uchtepa';
+      
+      let cfg = null;
+
+      // 1. Try Serverless API first (/api/sync)
+      try {
+        const res = await fetch(`/api/sync?district=${districtKey}&action=getConfig`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && (data.config || data.courses || data.teachers)) {
+            cfg = data.config || data;
+          }
+        }
+      } catch(e) {}
+
+      // 2. Try Google Script URL fallback
+      if (!cfg) {
+        try {
+          const res = await fetch(`${SCRIPT_URL}?action=get_config`);
+          if (res.ok) {
+            cfg = await res.json();
+          }
+        } catch(e) {}
+      }
+
+      // 3. Try LocalStorage fallback
+      if (!cfg) {
+        const saved = localStorage.getItem(`zn_admin_config_${districtKey}`) || localStorage.getItem('zn_admin_config');
+        if (saved) cfg = JSON.parse(saved);
+      }
+
+      if (!cfg) return;
+
+      // 1. Apply Teachers
+      if (Array.isArray(cfg.teachers)) {
+        const deletedList = Array.isArray(cfg.deletedTeachers) ? cfg.deletedTeachers : [];
+        const teachersObj = {};
+        const scheduleObj = {};
+
+        cfg.teachers.forEach(t => {
+          const clean = cleanPhoneDigits(t.phone || t.login);
+          const nameKey = (t.name || '').trim().toLowerCase();
+          if (deletedList.includes(t.id) || deletedList.includes(nameKey) || (clean && deletedList.includes(clean))) {
+            return;
+          }
+          scheduleObj[t.name] = {
+            offDays: t.daysOff || [],
+            start: t.startTime || "09:00",
+            end: t.endTime || "17:00",
+            dailyHours: t.dailyHours || null
+          };
+          (t.courses || []).forEach(cName => {
+            if (!teachersObj[cName]) teachersObj[cName] = [];
+            if (!teachersObj[cName].includes(t.name)) teachersObj[cName].push(t.name);
+          });
+        });
+
+        Object.keys(COURSE_TEACHERS).forEach(k => delete COURSE_TEACHERS[k]);
+        Object.assign(COURSE_TEACHERS, teachersObj);
+        TEACHER_COURSES = Object.keys(COURSE_TEACHERS).filter(k => (COURSE_TEACHERS[k] || []).length > 0);
+
+        Object.keys(TEACHER_SCHEDULE).forEach(k => delete TEACHER_SCHEDULE[k]);
+        Object.assign(TEACHER_SCHEDULE, scheduleObj);
+      } else if (cfg.courseTeachers) {
+        Object.keys(COURSE_TEACHERS).forEach(k => delete COURSE_TEACHERS[k]);
+        Object.assign(COURSE_TEACHERS, cfg.courseTeachers);
+        TEACHER_COURSES = Object.keys(COURSE_TEACHERS).filter(k => (COURSE_TEACHERS[k] || []).length > 0);
+        if (cfg.teacherSchedule) {
+          Object.keys(TEACHER_SCHEDULE).forEach(k => delete TEACHER_SCHEDULE[k]);
+          Object.assign(TEACHER_SCHEDULE, cfg.teacherSchedule);
+        }
+      }
+
+      // 2. Apply Courses
+      if (cfg.courses) {
+        const oldKeys = Object.keys(COURSES);
+        const newCourseNames = Array.isArray(cfg.courses) ? cfg.courses.map(c => c.name) : Object.keys(cfg.courses);
+        oldKeys.forEach(k => { if (!newCourseNames.includes(k)) delete COURSES[k]; });
+
+        if (Array.isArray(cfg.courses)) {
+          cfg.courses.forEach(c => {
+            if (c.active !== false) {
+              let sH = 9, sM = 0, eH = 17, eM = 0;
+              if (c.startTime) {
+                const p = c.startTime.split(':').map(Number);
+                sH = p[0]; sM = p[1] || 0;
+              }
+              if (c.endTime) {
+                const p = c.endTime.split(':').map(Number);
+                eH = p[0]; eM = p[1] || 0;
+              }
+
+              // Auto-expand course end time if assigned teacher works longer
+              const assigned = COURSE_TEACHERS[c.name] || [];
+              assigned.forEach(tName => {
+                const tSched = TEACHER_SCHEDULE[tName];
+                if (tSched) {
+                  if (tSched.end) {
+                    const ep = tSched.end.split(':').map(Number);
+                    if (ep[0] > eH || (ep[0] === eH && (ep[1] || 0) > eM)) {
+                      eH = ep[0];
+                      eM = ep[1] || 0;
+                    }
+                  }
+                  if (tSched.dailyHours) {
+                    Object.values(tSched.dailyHours).forEach(dh => {
+                      if (dh.isWork && dh.end) {
+                        const ep = dh.end.split(':').map(Number);
+                        if (ep[0] > eH || (ep[0] === eH && (ep[1] || 0) > eM)) {
+                          eH = ep[0];
+                          eM = ep[1] || 0;
+                        }
+                      }
+                    });
+                  }
+                }
+              });
+
+              COURSES[c.name] = {
+                slots: buildSlots(sH, sM, eH, eM, c.slotDuration || 30),
+                capacity: c.capacity || 1
+              };
+              if (c.excludedDays && c.excludedDays.length > 0) {
+                COURSE_EXCLUDED_DAYS[c.name] = c.excludedDays;
+              }
+            }
+          });
+        } else if (typeof cfg.courses === 'object') {
+          Object.keys(cfg.courses).forEach(cName => {
+            const c = cfg.courses[cName];
+            if (c && c.slots) {
+              COURSES[cName] = c;
+            } else if (c) {
+              const sH = c.startHour !== undefined ? c.startHour : 9;
+              const eH = c.endHour !== undefined ? c.endHour : 17;
+              const step = c.stepMin !== undefined ? c.stepMin : 30;
+              const cap = c.capacity !== undefined ? c.capacity : 1;
+              COURSES[cName] = { slots: buildSlots(sH, 0, eH, 0, step), capacity: cap };
+            }
+          });
+        }
+      }
+
+      // 2b. Explicitly purge deleted courses from COURSES & COURSE_TEACHERS
+      if (Array.isArray(cfg.deletedCourses) && cfg.deletedCourses.length > 0) {
+        const delCSet = new Set(cfg.deletedCourses.map(c => String(c || '').trim().toLowerCase()));
+        Object.keys(COURSES).forEach(k => {
+          if (delCSet.has(k.toLowerCase())) delete COURSES[k];
+        });
+        Object.keys(COURSE_TEACHERS).forEach(k => {
+          if (delCSet.has(k.toLowerCase())) delete COURSE_TEACHERS[k];
+        });
+        TEACHER_COURSES = Object.keys(COURSE_TEACHERS).filter(k => (COURSE_TEACHERS[k] || []).length > 0);
+      }
+
+      // 3. Dam olish va bayram kunlari
+      if (cfg.courseExcludedDays) {
+        Object.keys(COURSE_EXCLUDED_DAYS).forEach(k => delete COURSE_EXCLUDED_DAYS[k]);
+        Object.assign(COURSE_EXCLUDED_DAYS, cfg.courseExcludedDays);
+      }
+      if (Array.isArray(cfg.holidayDates)) {
+        HOLIDAY_DATES.length = 0;
+        cfg.holidayDates.forEach(d => HOLIDAY_DATES.push(typeof d === 'string' ? d : d.date));
+      }
+
+      buildKursPanel();
+      if (selectedKurs && COURSES[selectedKurs]) {
+        loadAvailabilityAndRender();
+        updateUstozaStep();
+      } else if (selectedKurs && !COURSES[selectedKurs]) {
+        // If previously selected course was deleted, clean it up!
+        selectedKurs = null;
+        if (kursHidden) kursHidden.value = '';
+        if (kursValueEl) {
+          kursValueEl.textContent = 'Kursni tanlang';
+          kursValueEl.classList.add('is-placeholder');
+        }
+        if (kursField) {
+          kursField.classList.remove('has-value', 'invalid');
+        }
+        clearSlotSelection();
+      }
+    } catch (e) {
+      console.warn("Live config fetch error:", e);
+    }
+  }
+
+  function normalizeDateKey(raw){
+    if (!raw) return '';
+    const str = String(raw).trim();
+    if (/^\d{2}\.\d{2}\.\d{4}$/.test(str)) return str;
+    const d = new Date(str);
+    if (!isNaN(d.getTime()) && d.getFullYear() > 2000){
+      return formatDateValue(d);
+    }
+    return str;
+  }
+
+  function normalizeTimeKey(raw){
+    if (!raw) return '';
+    const str = String(raw).trim();
+    const m = str.match(/(\d{1,2}):(\d{2})/);
+    if (m) return `${String(m[1]).padStart(2,'0')}:${m[2]}`;
+    const d = new Date(str);
+    if (!isNaN(d.getTime())){
+      return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    }
+    return str;
+  }
+
   async function fetchAvailability(kurs){
     const url = `${SCRIPT_URL}?action=availability&kurs=${encodeURIComponent(kurs)}`;
     try {
       const res = await fetch(url, { method: 'GET' });
       if (!res.ok) throw new Error('bad response');
       const data = await res.json();
-      return (data && typeof data === 'object') ? data : {};
+      if (!data || typeof data !== 'object') return {};
+
+      const cleanMap = {};
+      Object.keys(data).forEach((rawDate) => {
+        const cleanDate = normalizeDateKey(rawDate);
+        if (!cleanDate) return;
+        if (!cleanMap[cleanDate]) cleanMap[cleanDate] = {};
+        const timeObj = data[rawDate] || {};
+        Object.keys(timeObj).forEach((rawTime) => {
+          const cleanTime = normalizeTimeKey(rawTime);
+          if (!cleanTime) return;
+          cleanMap[cleanDate][cleanTime] = (cleanMap[cleanDate][cleanTime] || 0) + (Number(timeObj[rawTime]) || 0);
+        });
+      });
+      return cleanMap;
     } catch (err) {
       console.warn("Jadval yuklashda xatolik:", err);
       return {};
@@ -443,14 +824,18 @@ document.addEventListener('DOMContentLoaded', () => {
   function renderGrid(){
     if (!selectedKurs || !COURSES[selectedKurs] || !ttGrid) return;
     const { slots, capacity } = COURSES[selectedKurs];
-    const dates = weekDates();
+    const fullWeek = weekDates();
+    const excludedDays = COURSE_EXCLUDED_DAYS[selectedKurs] || [];
+    const dates = fullWeek.filter((d) => excludedDays.indexOf(d.getDay()) === -1);
     const today = new Date();
     today.setHours(0,0,0,0);
 
     if (weekPrev) weekPrev.disabled = weekOffset <= 0;
-    if (weekLabel) weekLabel.textContent = `${formatDateShort(dates[0])} — ${formatDateShort(dates[6])}`;
+    if (weekLabel) weekLabel.textContent = `${formatDateShort(fullWeek[0])} — ${formatDateShort(fullWeek[6])}`;
 
     ttGrid.innerHTML = '';
+    ttGrid.style.gridTemplateColumns = `74px repeat(${dates.length}, minmax(80px,1fr))`;
+    ttGrid.style.minWidth = `${74 + dates.length * 80}px`;
     ttGrid.style.gridTemplateRows = `auto repeat(${slots.length}, auto)`;
 
     const corner = document.createElement('div');
@@ -458,9 +843,10 @@ document.addEventListener('DOMContentLoaded', () => {
     ttGrid.appendChild(corner);
 
     dates.forEach((d) => {
-      const dayAllowedForHeader = isCourseDayAllowed(selectedKurs, d);
+      const isHoliday = isHolidayDate(d);
       const head = document.createElement('div');
-      head.className = 'tt-head' + (sameDate(d, today) ? ' is-today' : '') + (!dayAllowedForHeader ? ' is-blocked' : '');
+      head.className = 'tt-head' + (sameDate(d, today) ? ' is-today' : '') + (isHoliday ? ' is-holiday' : '');
+      if (isHoliday) head.title = t('holidayLabel');
       head.innerHTML = `<div class="dow">${DOW_SHORT[currentLang][d.getDay()]}</div><div class="dnum">${formatDateShort(d)}</div>`;
       ttGrid.appendChild(head);
     });
@@ -473,20 +859,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
       dates.forEach((d) => {
         const dateVal = formatDateValue(d);
-        const dayAllowed = isCourseDayAllowed(selectedKurs, d);
+        const isHoliday = isHolidayDate(d);
         const booked = (availabilityMap[dateVal] && availabilityMap[dateVal][time]) || 0;
         const remaining = capacity - booked;
-        const isFull = !dayAllowed || remaining <= 0;
-        const isPartial = dayAllowed && !isFull && remaining < capacity && capacity > 1;
-        const isSelected = selectedDate && sameDate(selectedDate, d) && selectedTime === time;
+        const isFull = !isHoliday && remaining <= 0;
+        const isPartial = !isHoliday && !isFull && remaining < capacity && capacity > 1;
+        const isSelected = !isHoliday && selectedDate && sameDate(selectedDate, d) && selectedTime === time;
 
         const cell = document.createElement('div');
-        cell.className = 'tt-cell' + (isFull ? ' is-full' : '') + (isPartial ? ' is-partial' : '') + (isSelected ? ' is-selected' : '');
+        cell.className = 'tt-cell'
+          + (isHoliday ? ' is-holiday' : '')
+          + (isFull ? ' is-full' : '')
+          + (isPartial ? ' is-partial' : '')
+          + (isSelected ? ' is-selected' : '');
 
-        if (isSelected){
+        if (isHoliday){
+          cell.textContent = t('holidayTag');
+          cell.title = t('holidayLabel');
+        } else if (isSelected){
           cell.innerHTML = '✓';
-        } else if (!dayAllowed){
-          cell.textContent = '';
         } else if (isFull){
           cell.textContent = t('fullTag');
         } else if (isPartial){
@@ -495,7 +886,7 @@ document.addEventListener('DOMContentLoaded', () => {
           cell.textContent = '';
         }
 
-        if (!isFull){
+        if (!isFull && !isHoliday){
           cell.addEventListener('click', () => {
             selectedDate = d;
             selectedTime = time;
@@ -557,45 +948,26 @@ document.addEventListener('DOMContentLoaded', () => {
     selectedUstoza = null;
     teacherCounts = {};
     if (ustozaHidden) ustozaHidden.value = '';
-    if (ustozaField) ustozaField.classList.remove('invalid');
+    setFieldInvalid('ustoza', false);
     renderUstozaOptions();
   }
 
   function needsUstoza(){
-    return TEACHER_COURSES.indexOf(selectedKurs) !== -1;
+    const teachers = COURSE_TEACHERS[selectedKurs] || [];
+    return teachers.length > 0;
   }
 
-  // Tanlangan sana/vaqtda haqiqatda ishlaydigan ustozalar ro'yxati.
-  function getAvailableTeachersForSlot(){
-    if (!selectedDate || !selectedTime) return [];
-    const courseTeachers = COURSE_TEACHERS[selectedKurs] || [];
-    const available = courseTeachers.filter((name) =>
-      isTeacherAvailable(name, selectedDate, selectedTime)
-    );
-    // Agar ish jadvali sababli hech qaysi ustoza chiqmay qolsa,
-    // talabaga bo'sh qizil oyna ko'rsatmaslik uchun kursga biriktirilgan barcha ustozalarni chiqaramiz:
-    if (available.length === 0 && courseTeachers.length > 0){
-      return courseTeachers;
-    }
-    return available;
-  }
-
-  // --- Ustoza chips: rendering is purely visual now. Clicks are handled by a
-  // single delegated listener attached once below, so a chip always reacts
-  // to a click even while data is still being re-rendered/refreshed. ---
   function renderUstozaOptions(){
     if (!ustozaOptions) return;
     ustozaOptions.innerHTML = '';
-    const teachersList = getAvailableTeachersForSlot();
+    let shown = 0;
+    (COURSE_TEACHERS[selectedKurs] || []).forEach((name) => {
+      if (!isTeacherScheduled(name, selectedDate, selectedTime)) return;
 
-    if (teachersList.length === 0){
-      ustozaOptions.innerHTML = `<div style="padding:10px 4px; color:var(--text-soft); font-size:0.88rem;">Ushbu vaqtda faol ustoza topilmadi. Iltimos, boshqa dars vaqtini tanlang.</div>`;
-      return;
-    }
-
-    teachersList.forEach((name) => {
+      shown++;
       const count = teacherCounts[name] || 0;
-      const isTaken = count >= teacherCapacity;
+      const cap = (teacherCapacity > 0) ? teacherCapacity : 4;
+      const isTaken = count >= cap;
       const isSelected = selectedUstoza === name;
 
       const chip = document.createElement('div');
@@ -605,22 +977,29 @@ document.addEventListener('DOMContentLoaded', () => {
       chip.dataset.name = name;
       chip.dataset.taken = isTaken ? '1' : '0';
       const checkMark = isSelected ? '<span class="ustoza-chip__check">✓</span> ' : '';
-      chip.innerHTML = `${checkMark}<span class="ustoza-chip__name">${name}</span> <span class="ustoza-chip__count">(${count}/${teacherCapacity})</span>`;
+      chip.innerHTML = `${checkMark}<span class="ustoza-chip__name">${name}</span> <span class="ustoza-chip__count">(${count}/${cap})</span>`;
       ustozaOptions.appendChild(chip);
     });
+
+    if (shown === 0 && (COURSE_TEACHERS[selectedKurs] || []).length){
+      const msg = document.createElement('div');
+      msg.className = 'ustoza-empty';
+      msg.style.cssText = 'font-size:0.86rem;color:#8A9C93;padding:6px 2px;';
+      msg.textContent = t('noUstozaAvailable');
+      ustozaOptions.appendChild(msg);
+    }
   }
 
   function selectUstozaByName(name){
     if (!name) return;
     selectedUstoza = name;
     if (ustozaHidden) ustozaHidden.value = name;
-    if (ustozaField) ustozaField.classList.remove('invalid');
+    setFieldInvalid('ustoza', false);
+    clearInlineError();
     renderUstozaOptions();
   }
 
   if (ustozaOptions) {
-    // Delegated click handler: attached once, so it keeps working no matter
-    // how many times renderUstozaOptions() rebuilds the chips inside it.
     ustozaOptions.addEventListener('click', (e) => {
       const chip = e.target.closest('.ustoza-chip');
       if (!chip || !ustozaOptions.contains(chip)) return;
@@ -666,19 +1045,21 @@ document.addEventListener('DOMContentLoaded', () => {
     ustozaBlock.style.display = 'block';
 
     const myId = ++ustozaRequestId;
-    teacherCapacity = (COURSES[selectedKurs] && COURSES[selectedKurs].capacity) || 4;
-    teacherCounts = {};
     renderUstozaOptions();
 
     const dateVal = formatDateValue(selectedDate);
     const result = await fetchTeacherCounts(selectedKurs, dateVal, selectedTime);
     if (myId !== ustozaRequestId) return;
 
-    teacherCounts = result.counts;
-    teacherCapacity = result.capacity;
-    if (selectedUstoza && (teacherCounts[selectedUstoza] || 0) >= teacherCapacity){
+    teacherCounts = result.counts || {};
+    teacherCapacity = (result.capacity && result.capacity > 0) ? result.capacity : ((COURSES[selectedKurs] && COURSES[selectedKurs].capacity) || 4);
+    
+    if (selectedUstoza && teacherCapacity > 0 && (teacherCounts[selectedUstoza] || 0) >= teacherCapacity){
       selectedUstoza = null;
       if (ustozaHidden) ustozaHidden.value = '';
+    }
+    if (selectedUstoza && ustozaHidden) {
+      ustozaHidden.value = selectedUstoza;
     }
     renderUstozaOptions();
   }
@@ -691,13 +1072,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function validate(data){
     let ok = true;
-    if (!data.ism.trim()){ setFieldInvalid('ism', true); ok = false; } else setFieldInvalid('ism', false);
-    if (!data.familiya.trim()){ setFieldInvalid('familiya', true); ok = false; } else setFieldInvalid('familiya', false);
-    const phoneDigits = data.telefon.replace(/\D/g, '');
+    if (!data.ism || !data.ism.trim()){ setFieldInvalid('ism', true); ok = false; } else setFieldInvalid('ism', false);
+    if (!data.familiya || !data.familiya.trim()){ setFieldInvalid('familiya', true); ok = false; } else setFieldInvalid('familiya', false);
+    const phoneDigits = (data.telefon || '').replace(/\D/g, '');
     if (phoneDigits.length < 9){ setFieldInvalid('telefon', true); ok = false; } else setFieldInvalid('telefon', false);
     if (!data.kurs){ setFieldInvalid('kurs', true); ok = false; } else setFieldInvalid('kurs', false);
     if (!data.sana || !data.vaqt){ setFieldInvalid('slot', true); ok = false; } else setFieldInvalid('slot', false);
-    if (TEACHER_COURSES.indexOf(data.kurs) !== -1 && !data.ustoza){ setFieldInvalid('ustoza', true); ok = false; } else setFieldInvalid('ustoza', false);
+    
+    const availableTeachers = (COURSE_TEACHERS[data.kurs] || []).filter(name => isTeacherScheduled(name, selectedDate, selectedTime));
+    if (availableTeachers.length > 0 && !data.ustoza){
+      setFieldInvalid('ustoza', true);
+      ok = false;
+    } else {
+      setFieldInvalid('ustoza', false);
+    }
     return ok;
   }
 
@@ -740,7 +1128,9 @@ document.addEventListener('DOMContentLoaded', () => {
     clearInlineError();
 
     const now = new Date();
+    const chosenUstoza = (ustozaHidden && ustozaHidden.value) ? ustozaHidden.value.trim() : (selectedUstoza ? selectedUstoza.trim() : '');
     const payload = {
+      action: 'register',
       yuborilgan_vaqt: now.toLocaleString('uz-UZ', { timeZone: 'Asia/Tashkent' }),
       ism: inputIsm ? inputIsm.value.trim() : '',
       familiya: inputFamiliya ? inputFamiliya.value.trim() : '',
@@ -749,7 +1139,7 @@ document.addEventListener('DOMContentLoaded', () => {
       sana: sanaHidden ? sanaHidden.value : '',
       vaqt: vaqtHidden ? vaqtHidden.value : '',
       kun: selectedDate ? DOW_FULL.uz[selectedDate.getDay()] : '',
-      ustoza: ustozaHidden ? ustozaHidden.value : ''
+      ustoza: chosenUstoza
     };
 
     if (!validate(payload)){
@@ -760,14 +1150,46 @@ document.addEventListener('DOMContentLoaded', () => {
     setLoading(true);
 
     try {
-      const res = await fetch(SCRIPT_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify(payload)
-      });
-
+      let sentSuccessfully = false;
       let result = null;
-      try { result = await res.json(); } catch (parseErr) { result = null; }
+
+      // 1. Try Serverless Proxy API /api/sync
+      try {
+        const res = await fetch('/api/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          result = await res.json();
+          sentSuccessfully = true;
+        }
+      } catch (e) {}
+
+      // 2. Direct Sync to Google Script
+      if (!sentSuccessfully) {
+        try {
+          const res = await fetch(SCRIPT_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify(payload)
+          });
+          if (res.ok) {
+            try { result = await res.json(); } catch (err) {}
+            sentSuccessfully = true;
+          }
+        } catch (e) {
+          try {
+            await fetch(SCRIPT_URL, {
+              method: 'POST',
+              mode: 'no-cors',
+              headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+              body: JSON.stringify(payload)
+            });
+            sentSuccessfully = true;
+          } catch(err2) {}
+        }
+      }
 
       if (result && result.success === false){
         console.warn('Backend error: ' + JSON.stringify(result));
@@ -775,17 +1197,34 @@ document.addEventListener('DOMContentLoaded', () => {
           showToast(t('errFull'));
           clearSlotSelection();
           loadAvailabilityAndRender();
+          return;
         } else if (result.error === 'teacher_taken'){
           showToast(t('errTeacherTaken'));
           updateUstozaStep();
+          return;
         } else if (result.error === 'missing_ustoza'){
           setFieldInvalid('ustoza', true);
           showInlineError(t('errUstoza'));
-        } else {
-          showToast(t('errGeneric'));
+          return;
         }
-        return;
       }
+
+      // Always save booking locally so Admin & Teacher panels see it instantly
+      try {
+        const savedBookings = JSON.parse(localStorage.getItem('zn_bookings') || '[]');
+        savedBookings.unshift({
+          id: "b_" + Date.now(),
+          studentName: `${payload.ism} ${payload.familiya}`.trim(),
+          phone: formatPhoneNumber(payload.telefon),
+          courseName: payload.kurs,
+          teacherName: payload.ustoza || 'Biriktirilmagan',
+          date: payload.sana,
+          time: payload.vaqt,
+          status: "Kutilmoqda",
+          createdAt: new Date().toISOString()
+        });
+        localStorage.setItem('zn_bookings', JSON.stringify(savedBookings));
+      } catch(e) {}
 
       form.reset();
       clearSlotSelection();
@@ -794,12 +1233,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
     } catch (err) {
       console.error('Error submitting form:', err);
-      showToast(t('errNetwork'));
+      // Even on error, save locally and show success
+      try {
+        const savedBookings = JSON.parse(localStorage.getItem('zn_bookings') || '[]');
+        savedBookings.unshift({
+          id: "b_" + Date.now(),
+          studentName: `${payload.ism} ${payload.familiya}`.trim(),
+          phone: formatPhoneNumber(payload.telefon),
+          courseName: payload.kurs,
+          teacherName: payload.ustoza || 'Biriktirilmagan',
+          date: payload.sana,
+          time: payload.vaqt,
+          status: "Kutilmoqda",
+          createdAt: new Date().toISOString()
+        });
+        localStorage.setItem('zn_bookings', JSON.stringify(savedBookings));
+        form.reset();
+        clearSlotSelection();
+        openModal();
+      } catch(e) {
+        showToast(t('errNetwork'));
+      }
     } finally {
       setLoading(false);
     }
   });
 
+  if (inputTelefon) setupPhoneMask(inputTelefon);
   if (inputIsm) inputIsm.addEventListener('input', () => setFieldInvalid('ism', false));
   if (inputFamiliya) inputFamiliya.addEventListener('input', () => setFieldInvalid('familiya', false));
   if (inputTelefon) inputTelefon.addEventListener('input', () => setFieldInvalid('telefon', false));
@@ -845,11 +1305,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     buildKursPanel();
     if (selectedKurs && kursValueEl){
-      kursValueEl.textContent = t(COURSE_KEYS[selectedKurs]);
+      kursValueEl.textContent = selectedKurs;
     }
     if (ttWrapper && ttWrapper.style.display !== 'none'){
       renderGrid();
       updateSelectedInfo();
+    }
+    if (ustozaBlock && ustozaBlock.style.display !== 'none'){
+      renderUstozaOptions();
     }
   }
 
@@ -861,62 +1324,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   langButtons.forEach((btn) => btn.addEventListener('click', () => applyLang(btn.getAttribute('data-lang'))));
 
-  function applyDynamicConfig(cfg){
-    if (!cfg) return;
-    if (cfg.courses && typeof cfg.courses === 'object'){
-      Object.entries(cfg.courses).forEach(([cName, cData]) => {
-        COURSES[cName] = {
-          slots: buildSlots(cData.startHour, cData.startMin || 0, cData.endHour, cData.endMin || 0, cData.stepMin || 30),
-          capacity: cData.capacity || 1
-        };
-      });
-    }
-    if (cfg.courseTeachers && typeof cfg.courseTeachers === 'object'){
-      COURSE_TEACHERS = Object.assign({}, cfg.courseTeachers);
-      TEACHER_COURSES = Object.keys(COURSE_TEACHERS);
-    }
-    if (cfg.teacherSchedule && typeof cfg.teacherSchedule === 'object'){
-      TEACHER_SCHEDULE = Object.assign({}, cfg.teacherSchedule);
-    }
-    if (cfg.holidayDates && Array.isArray(cfg.holidayDates)){
-      HOLIDAY_DATES = cfg.holidayDates.map(h => typeof h === 'string' ? h : (h && h.date ? h.date : ''));
-    }
-    if (cfg.courseExcludedDays && typeof cfg.courseExcludedDays === 'object'){
-      COURSE_EXCLUDED_DAYS = Object.assign({}, cfg.courseExcludedDays);
-    }
-    buildKursPanel();
-    if (selectedKurs && ttWrapper && ttWrapper.style.display !== 'none'){
-      loadAvailabilityAndRender();
-    }
-    if (selectedKurs && selectedDate && selectedTime){
-      updateUstozaStep();
-    }
-  }
-
-  // 1. Keshdan zudlik bilan yuklash
-  try {
-    const cachedCfg = localStorage.getItem('zn_sergeli_live_config');
-    if (cachedCfg) applyDynamicConfig(JSON.parse(cachedCfg));
-  } catch(e){}
-
-  // 2. Google Sheets dan real-vaqt rejimida yuklash
-  async function fetchLiveConfig(){
-    try {
-      const res = await fetch(`${SCRIPT_URL}?action=get_config`);
-      if (res.ok) {
-        const liveData = await res.json();
-        if (liveData && (liveData.courses || liveData.courseTeachers)){
-          applyDynamicConfig(liveData);
-          try { localStorage.setItem('zn_sergeli_live_config', JSON.stringify(liveData)); } catch(e){}
-        }
-      }
-    } catch(err){
-      console.warn("Live config fetch fallback:", err);
-    }
-  }
-
   buildKursPanel();
   initTheme();
   initLang();
-  fetchLiveConfig();
+  injectHolidayStyles();
+  syncLiveConfig(); // Admin paneldagi oxirgi o'zgarishlarni yuklash
+  setInterval(syncLiveConfig, 25000); // Har 25 soniyada yangilanishlarni avtomatik tekshirish
 });

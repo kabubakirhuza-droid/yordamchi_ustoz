@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="uz" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ZIN-NUR Academy — Ustoz Boshqaruv Paneli</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Fira+Code:wght@500;700&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="teacher.css">
+  <link rel="icon" href="logo-mark.png">
+</head>
+<body>
+
+  <!-- ==========================================
+       1. LOGIN SCREEN
+       ========================================== -->
+  <div class="login-wrapper" id="loginScreen">
+    <div class="login-card">
+      <div class="login-header">
+        <div style="display:flex; justify-content:flex-end; margin-bottom:8px;">
+          <div class="lang-switcher">
+            <button type="button" class="lang-btn active" data-lang="uz">UZ</button>
+            <button type="button" class="lang-btn" data-lang="ru">RU</button>
+            <button type="button" class="lang-btn" data-lang="en">EN</button>
+          </div>
+        </div>
+        <div class="login-logo">
+          <img src="logo-mark.png" alt="ZIN-NUR" onerror="this.src='./logo-mark.png'">
+        </div>
+        <h2 data-i18n="loginTitle">Ustozlar uchun kirish</h2>
+        <p data-i18n="loginSub">ZIN-NUR Academy Teacher Panel</p>
+      </div>
+
+      <form id="teacherLoginForm" action="javascript:void(0);" onsubmit="if(window.teacherApp) window.teacherApp.handleLogin(event); return false;">
+        <div class="form-group">
+          <label class="form-label" for="loginUsername" data-i18n="lblLogin">Telefon raqami yoki Login</label>
+          <input type="text" id="loginUsername" class="form-control" required value="+998 " placeholder="+998 90 123 45 67" autocomplete="username">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="loginPassword" data-i18n="lblPin">PIN-kod / Parol</label>
+          <div style="position:relative;">
+            <input type="password" id="loginPassword" class="form-control" required placeholder="••••" autocomplete="current-password" style="padding-right:44px;">
+            <button type="button" id="btnToggleTeacherPass" style="position:absolute; right:12px; top:50%; transform:translateY(-50%); background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:1.1rem;" title="Ko'rsatish/Yashirish">👁️</button>
+          </div>
+        </div>
+
+        <button type="submit" id="btnTeacherSubmit" class="btn btn-primary" style="width:100%; padding:14px; margin-top:8px; font-weight:700;">
+          <span data-i18n="btnEnter">Kabinetga kirish</span>
+        </button>
+
+        <div id="loginErrorMsg" style="display:none; color:#dc2626; background:#fef2f2; border:1px solid #fecaca; padding:10px 14px; border-radius:10px; font-size:0.88rem; margin-top:14px; text-align:center; font-weight:600;"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       2. TEACHER DASHBOARD APP
+       ========================================== -->
+  <div class="teacher-layout" id="teacherApp" style="display:none;">
+    
+    <!-- SIDEBAR -->
+    <aside class="teacher-sidebar" id="teacherSidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo">
+          <img src="logo-mark.png" alt="ZIN-NUR" onerror="this.src='./logo-mark.png'">
+        </div>
+        <div class="sidebar-title">
+          <h2>ZIN-NUR</h2>
+          <span data-i18n="portalTitle">Teacher Panel</span>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <div class="nav-item active" data-tab="dashboard">
+          <span>🏠</span> <span data-i18n="navHome">Bosh sahifa</span>
+        </div>
+        <div class="nav-item" data-tab="schedule">
+          <span>📅</span> <span data-i18n="navSchedule">Mening jadvalim</span>
+        </div>
+        <div class="nav-item" data-tab="students">
+          <span>👨‍🎓</span> <span data-i18n="navStudents">O'quvchilarim</span>
+        </div>
+        <div class="nav-item" data-tab="courses">
+          <span>📚</span> <span data-i18n="navCourses">Kurslarim</span>
+        </div>
+        <div class="nav-item" data-tab="notifications">
+          <span>🔔</span> <span data-i18n="navNotifs">Bildirishnomalar</span>
+          <span class="nav-badge" id="notifUnreadBadge" style="display:none;">0</span>
+        </div>
+        <div class="nav-item" data-tab="profile">
+          <span>👤</span> <span data-i18n="navProfile">Profil</span>
+        </div>
+        <div class="nav-item" data-tab="stats">
+          <span>📊</span> <span data-i18n="navStats">Mening statistikalarim</span>
+        </div>
+      </nav>
+
+      <div style="padding:20px; border-top:1px solid var(--border-color);">
+        <button type="button" class="btn btn-secondary" id="btnLogout" style="width:100%; color:var(--danger); border-color:rgba(239, 68, 68, 0.2);" data-i18n="logout">
+          🚪 Chiqish
+        </button>
+      </div>
+    </aside>
+
+    <!-- MAIN BODY -->
+    <main class="teacher-main">
+      
+      <!-- HEADER -->
+      <header class="teacher-header">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <button class="mobile-menu-toggle" id="btnToggleTeacherSidebar" aria-label="Menu">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          </button>
+          
+          <div class="header-user-info">
+            <div class="header-avatar" id="headerAvatar">F</div>
+            <div class="header-greeting">
+              <h2 id="headerGreetingText">Assalomu alaykum, Fotima Ustoza! 👋</h2>
+              <p data-i18n="subGreeting">Bugungi darslaringiz va jadvalingiz.</p>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:12px; align-items:center;">
+          <!-- Notification Quick Bell -->
+          <button type="button" class="btn btn-secondary btn-icon" style="position:relative;" onclick="teacherApp.switchTab('notifications')" title="Bildirishnomalar">
+            🔔
+            <span id="headerNotifDot" style="display:none; position:absolute; top:-2px; right:-2px; width:8px; height:8px; background:var(--danger); border-radius:50%;"></span>
+          </button>
+
+          <!-- Language Switcher -->
+          <div class="lang-switcher">
+            <button type="button" class="lang-btn active" data-lang="uz">UZ</button>
+            <button type="button" class="lang-btn" data-lang="ru">RU</button>
+            <button type="button" class="lang-btn" data-lang="en">EN</button>
+          </div>
+        </div>
+      </header>
+
+      <!-- CONTENT VIEWS -->
+      <div class="teacher-content">
+
+        <!-- VIEW: DASHBOARD -->
+        <section class="page-view active" id="view-dashboard">
+          <div class="stats-grid">
+            <div class="stat-card" onclick="teacherApp.switchTab('schedule')">
+              <div class="stat-icon">📅</div>
+              <div class="stat-info">
+                <span class="label" data-i18n="statToday">Bugungi darslar</span>
+                <div class="value" id="statTodayLessons">0</div>
+              </div>
+            </div>
+
+            <div class="stat-card" onclick="teacherApp.switchTab('students')">
+              <div class="stat-icon">👨‍🎓</div>
+              <div class="stat-info">
+                <span class="label" data-i18n="statStudents">O'quvchilar</span>
+                <div class="value" id="statTotalStudents">0</div>
+              </div>
+            </div>
+
+            <div class="stat-card" onclick="teacherApp.switchTab('courses')">
+              <div class="stat-icon">📚</div>
+              <div class="stat-info">
+                <span class="label" data-i18n="statCourses">Kurslar</span>
+                <div class="value" id="statCoursesCount">0</div>
+              </div>
+            </div>
+
+            <div class="stat-card" onclick="teacherApp.switchTab('schedule')">
+              <div class="stat-icon">⏳</div>
+              <div class="stat-info">
+                <span class="label" data-i18n="statPending">Kutilayotgan darslar</span>
+                <div class="value" id="statPendingCount">0</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick Actions Section -->
+          <h2 style="font-family:var(--font-heading); font-size:1.3rem; margin: 24px 0 16px;" data-i18n="quickActionsTitle">⚡ Tezkor amallar</h2>
+          <div class="quick-actions-grid">
+            <div class="action-card" onclick="teacherApp.switchTab('schedule')">
+              <div class="action-card-header">
+                <div class="action-card-icon">📅</div>
+              </div>
+              <h3 data-i18n="qaTodayScheduleTitle">Bugungi jadval</h3>
+              <p data-i18n="qaTodayScheduleDesc">Bugungi darslarni ko'rish</p>
+            </div>
+
+            <div class="action-card" onclick="teacherApp.switchTab('students')">
+              <div class="action-card-header">
+                <div class="action-card-icon">👨‍🎓</div>
+              </div>
+              <h3 data-i18n="qaStudentsTitle">O'quvchilar</h3>
+              <p data-i18n="qaStudentsDesc">O'quvchilar ro'yxati</p>
+            </div>
+
+            <div class="action-card" onclick="teacherApp.switchTab('courses')">
+              <div class="action-card-header">
+                <div class="action-card-icon">📚</div>
+              </div>
+              <h3 data-i18n="qaCoursesTitle">Kurslar</h3>
+              <p data-i18n="qaCoursesDesc">Biriktirilgan kurslar</p>
+            </div>
+
+            <div class="action-card" onclick="teacherApp.switchTab('notifications')">
+              <div class="action-card-header">
+                <div class="action-card-icon">🔔</div>
+              </div>
+              <h3 data-i18n="qaNotifsTitle">Bildirishnomalar</h3>
+              <p data-i18n="qaNotifsDesc">Yangi xabarlarni ko'rish</p>
+            </div>
+          </div>
+
+          <!-- Today's Lessons -->
+          <h2 style="font-family:var(--font-heading); margin: 28px 0 16px;" data-i18n="todayLessons">📅 Bugungi darslar</h2>
+          <div class="lessons-grid" id="todayLessonsContainer"></div>
+        </section>
+
+        <!-- VIEW: SCHEDULE -->
+        <section class="page-view" id="view-schedule">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
+            <h2 style="font-family:var(--font-heading);" data-i18n="navSchedule">Mening jadvalim</h2>
+            
+            <div style="display:flex; gap:8px;">
+              <div class="lang-switcher" id="scheduleViewSwitcher">
+                <button type="button" class="lang-btn active" data-view="day" onclick="teacherApp.setScheduleViewMode('day')">Kun</button>
+                <button type="button" class="lang-btn" data-view="week" onclick="teacherApp.setScheduleViewMode('week')">Hafta</button>
+                <button type="button" class="lang-btn" data-view="month" onclick="teacherApp.setScheduleViewMode('month')">Oy</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Filter options -->
+          <div style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom:20px;">
+            <select id="teacherScheduleCourseFilter" class="form-control" style="max-width:240px;">
+              <option value="">Barcha kurslar</option>
+            </select>
+            <select id="teacherScheduleStatusFilter" class="form-control" style="max-width:200px;">
+              <option value="">Barcha statuslar</option>
+              <option value="Kutilmoqda">Kutilmoqda</option>
+              <option value="Tasdiqlangan">Tasdiqlangan</option>
+              <option value="Yakunlangan">Yakunlangan</option>
+              <option value="Bekor qilingan">Bekor qilingan</option>
+            </select>
+          </div>
+
+          <div id="scheduleListContainer"></div>
+        </section>
+
+        <!-- VIEW: STUDENTS -->
+        <section class="page-view" id="view-students">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
+            <h2 style="font-family:var(--font-heading);" data-i18n="navStudents">O'quvchilarim</h2>
+          </div>
+
+          <div style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom:20px;">
+            <input type="text" id="teacherStudentSearch" class="form-control" placeholder="O'quvchini qidirish..." style="max-width:280px;">
+            <select id="teacherStudentCourseFilter" class="form-control" style="max-width:220px;">
+              <option value="">Barcha kurslar</option>
+            </select>
+          </div>
+
+          <div class="lessons-grid" id="studentsListContainer"></div>
+        </section>
+
+        <!-- VIEW: COURSES -->
+        <section class="page-view" id="view-courses">
+          <h2 style="font-family:var(--font-heading); margin-bottom:16px;" data-i18n="navCourses">Kurslarim</h2>
+          <div class="lessons-grid" id="teacherCoursesContainer"></div>
+        </section>
+
+        <!-- VIEW: NOTIFICATIONS -->
+        <section class="page-view" id="view-notifications">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
+            <h2 style="font-family:var(--font-heading);" data-i18n="navNotifs">Bildirishnomalar</h2>
+            <button type="button" class="btn btn-secondary" onclick="teacherApp.markAllNotifsRead()" data-i18n="markAllRead">
+              Barchasini o'qilgan deb belgilash
+            </button>
+          </div>
+          <div id="notificationsContainer"></div>
+        </section>
+
+        <!-- VIEW: PROFILE -->
+        <section class="page-view" id="view-profile">
+          <h2 style="font-family:var(--font-heading); margin-bottom:16px;" data-i18n="navProfile">Mening profilim</h2>
+          
+          <div class="stat-card" style="flex-direction:column; align-items:flex-start; gap:16px; padding:28px;">
+            <div style="display:flex; align-items:center; gap:16px;">
+              <div class="header-avatar" id="profAvatar" style="width:64px; height:64px; font-size:1.8rem;">F</div>
+              <div>
+                <h3 id="profName" style="font-size:1.3rem; margin-bottom:4px;">-</h3>
+                <span class="badge badge-info" id="profCoursesBadge">3 ta kurs</span>
+              </div>
+            </div>
+
+            <hr style="width:100%; border:none; border-top:1px solid var(--border-color);">
+
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:16px; width:100%;">
+              <div>Login: <br><code id="profLogin" style="font-size:1rem; font-weight:700; color:var(--primary);">-</code></div>
+              <div>Telefon: <br><strong id="profPhone">+998 90 000 00 00</strong></div>
+              <div>Email: <br><strong id="profEmail">ustoz@zinnur.uz</strong></div>
+              <div>Ish vaqti: <br><strong id="profHours">09:00 — 18:00</strong></div>
+            </div>
+
+            <h4 style="font-family:var(--font-heading); margin-top:12px;" data-i18n="profileHoursTitle">Haftalik Ish vaqti</h4>
+            <div class="custom-table-container" style="width:100%;">
+              <table class="davomat-table">
+                <thead>
+                  <tr>
+                    <th>Kun</th>
+                    <th>Ish vaqti</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="profWeeklyScheduleBody"></tbody>
+              </table>
+            </div>
+
+            <div style="width:100%; padding:14px; background:var(--warning-bg); color:var(--warning); border-radius:var(--radius-md); font-size:0.9rem; font-weight:600;" data-i18n="profileContactNotice">
+              Ushbu ma'lumotni o'zgartirish uchun administrator bilan bog'laning.
+            </div>
+          </div>
+        </section>
+
+        <!-- VIEW: STATS -->
+        <section class="page-view" id="view-stats">
+          <h2 style="font-family:var(--font-heading); margin-bottom:16px;" data-i18n="navStats">Mening statistikalarim</h2>
+          
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-info">
+                <span class="label" data-i18n="statCompletedLessons">O'tkazilgan darslar</span>
+                <div class="value" id="statCompletedLessonsCount">0</div>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-info">
+                <span class="label" data-i18n="statActiveStudents">Faol o'quvchilar</span>
+                <div class="value" id="statActiveStudentsCount">0</div>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-info">
+                <span class="label" data-i18n="attendanceRate">O'rtacha Davomat</span>
+                <div class="value" id="attendanceRateDisplay">100%</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="stat-card" style="margin-top:20px; flex-direction:column; align-items:flex-start; padding:24px;">
+            <h3 style="font-family:var(--font-heading); margin-bottom:16px;" data-i18n="weeklyDistributionTitle">Haftalik Darslar Taqsimoti</h3>
+            <div id="weeklyChartContainer" style="display:flex; justify-content:space-around; align-items:flex-end; width:100%; height:160px; padding-top:20px;"></div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- ==========================================
+       MODALS
+       ========================================== -->
+
+  <!-- LESSON DETAIL MODAL -->
+  <div class="modal-overlay" id="modalLesson">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3 id="lessonModalTitle">Dars</h3>
+        <button type="button" class="modal-close-btn" data-close-modal>✕</button>
+      </div>
+
+      <div class="modal-body">
+        <p id="lessonModalInfo" style="color:var(--text-muted); margin-bottom:12px;"></p>
+        
+        <div style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
+          <button type="button" class="btn btn-primary" id="btnStartLesson" onclick="teacherApp.startLiveLesson()" data-i18n="startLesson">Darsni boshlash</button>
+          <button type="button" class="btn btn-secondary" id="btnEndLesson" onclick="teacherApp.endLiveLesson()" data-i18n="endLesson">Darsni yakunlash</button>
+        </div>
+
+        <div id="lessonLiveStatusBadge" style="margin-bottom:12px;"></div>
+
+        <div class="live-timer" id="liveTimerDisplay" style="display:none;">00:00:00</div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:20px; margin-bottom:10px;">
+          <h4 style="font-family:var(--font-heading);" data-i18n="davomatTitle">Davomat</h4>
+          <button type="button" class="btn btn-secondary" style="font-size:0.8rem; padding:6px 12px;" onclick="teacherApp.markAllPresentInModal()" data-i18n="markAllPresent">
+            Barchasini kelgan deb belgilash
+          </button>
+        </div>
+
+        <table class="davomat-table">
+          <thead>
+            <tr>
+              <th>O'quvchi</th>
+              <th>Davomat</th>
+            </tr>
+          </thead>
+          <tbody id="davomatTableBody"></tbody>
+        </table>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-close-modal data-i18n="cancel">Yopish</button>
+        <button type="button" class="btn btn-primary" onclick="teacherApp.saveDavomatFromModal()" data-i18n="saveDavomat">Davomatni saqlash</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- STUDENT PROFILE MODAL -->
+  <div class="modal-overlay" id="modalStudent">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3 id="studentModalName">O'quvchi profili</h3>
+        <button type="button" class="modal-close-btn" data-close-modal>✕</button>
+      </div>
+
+      <div class="modal-body">
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom:16px;">
+          <div>📞 Telefon: <br><strong id="studentModalPhone">-</strong></div>
+          <div>📚 Kurs: <br><strong id="studentModalCourse">-</strong></div>
+          <div>👥 Guruh: <br><strong id="studentModalGroup">Asosiy guruh</strong></div>
+          <div>📅 Boshlangan sana: <br><strong id="studentModalStartDate">01.09.2026</strong></div>
+        </div>
+
+        <div style="padding:14px; background:var(--primary-light); border-radius:var(--radius-md); margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-weight:600; color:var(--primary);" data-i18n="attendanceRate">Davomat ko'rsatkichi</span>
+          <span style="font-size:1.3rem; font-weight:800; color:var(--primary);" id="studentModalAttRate">95%</span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" data-i18n="internalNotes">Izohlar</label>
+          <textarea id="studentNoteInput" class="form-control" rows="3" placeholder="Bugungi mavzuni yaxshi o'zlashtirdi..."></textarea>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-close-modal data-i18n="cancel">Bekor qilish</button>
+        <button type="button" class="btn btn-primary" id="btnSaveStudentNote" data-i18n="saveNote">Izohni saqlash</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- COURSE DETAIL MODAL -->
+  <div class="modal-overlay" id="modalCourseDetail">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3 id="courseDetailTitle">Kurs haqida</h3>
+        <button type="button" class="modal-close-btn" data-close-modal>✕</button>
+      </div>
+
+      <div class="modal-body">
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom:16px;">
+          <div>🕐 Dars vaqti: <br><strong id="courseDetailTime">-</strong></div>
+          <div>👥 Sig'im: <br><strong id="courseDetailCapacity">-</strong></div>
+        </div>
+
+        <h4 style="font-family:var(--font-heading); margin-bottom:10px;" data-i18n="navStudents">O'quvchilar</h4>
+        <div id="courseDetailStudentsList" style="margin-bottom:16px;"></div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-close-modal data-i18n="cancel">Yopish</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toastContainer"></div>
+
+  <script src="teacher.js"></script>
+</body>
+</html>

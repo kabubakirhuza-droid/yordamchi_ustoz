@@ -1,7 +1,37 @@
 {
   "cleanUrls": true,
   "rewrites": [
-    { "source": "/admin", "destination": "/admin/index.html" },
-    { "source": "/admin/:path*", "destination": "/admin/:path*" }
+    {
+      "source": "/admin",
+      "destination": "/admin/index.html"
+    },
+    {
+      "source": "/sergeli",
+      "destination": "/admin/index.html?district=sergeli"
+    },
+    {
+      "source": "/uchtepa",
+      "destination": "/admin/index.html?district=uchtepa"
+    },
+    {
+      "source": "/admin/:path*",
+      "destination": "/admin/index.html"
+    },
+    {
+      "source": "/teacher",
+      "destination": "/teacher.html"
+    },
+    {
+      "source": "/teacher/:path*",
+      "destination": "/teacher.html"
+    },
+    {
+      "source": "/sergeli/:path*",
+      "destination": "/admin/index.html?district=sergeli"
+    },
+    {
+      "source": "/uchtepa/:path*",
+      "destination": "/admin/index.html?district=uchtepa"
+    }
   ]
 }

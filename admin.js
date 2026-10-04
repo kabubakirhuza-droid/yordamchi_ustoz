@@ -693,18 +693,67 @@ class AdminDashboard {
       merged.teachers = [];
     }
 
-    // Courses: prefer remote array if non-empty
-    if (Array.isArray(remoteCfg.courses) && remoteCfg.courses.length > 0) {
-      merged.courses = remoteCfg.courses;
-    } else if (remoteCfg.courses === null) {
-      merged.courses = localCfg.courses || merged.courses;
+    // Merge and deduplicate deletedCourses
+    const localDelCourses = Array.isArray(localCfg.deletedCourses) ? localCfg.deletedCourses : [];
+    const remoteDelCourses = Array.isArray(remoteCfg.deletedCourses) ? remoteCfg.deletedCourses : [];
+    const allDeletedCourses = Array.from(new Set([...localDelCourses, ...remoteDelCourses].map(c => String(c || '').trim().toLowerCase()))).filter(Boolean);
+    merged.deletedCourses = allDeletedCourses;
+
+    const isCourseDeleted = (c) => {
+      if (!c || !c.name) return true;
+      const id = String(c.id || '').trim().toLowerCase();
+      const name = String(c.name || '').trim().toLowerCase();
+      return allDeletedCourses.includes(id) || allDeletedCourses.includes(name);
+    };
+
+    // Courses: prefer remote array if non-empty, filtered against deletedCourses!
+    if (Array.isArray(remoteCfg.courses)) {
+      merged.courses = remoteCfg.courses.filter(c => !isCourseDeleted(c));
+    } else if (Array.isArray(localCfg.courses)) {
+      merged.courses = localCfg.courses.filter(c => !isCourseDeleted(c));
+    }
+
+    // Strip deleted courses from teachers
+    if (Array.isArray(merged.teachers) && allDeletedCourses.length > 0) {
+      merged.teachers.forEach(t => {
+        if (Array.isArray(t.courses)) {
+          t.courses = t.courses.filter(cn => !allDeletedCourses.includes(String(cn).trim().toLowerCase()));
+        }
+      });
     }
 
     merged.scriptUrl = remoteCfg.scriptUrl || localCfg.scriptUrl || DEFAULT_SCRIPT_URL;
     return merged;
   }
 
+  rebuildCourseTeachersAndSchedule() {
+    if (!this.data || !this.data.config) return;
+    const teachers = this.data.config.teachers || [];
+    const courseTeachers = {};
+    const teacherSchedule = {};
+    const coursesList = this.data.config.courses || [];
+    const validCourseNames = new Set(coursesList.map(c => typeof c === 'string' ? c.trim().toLowerCase() : String(c.name || '').trim().toLowerCase()));
 
+    teachers.forEach(t => {
+      if (!t || !t.name) return;
+      teacherSchedule[t.name] = {
+        offDays: t.daysOff || [],
+        start: t.startTime || "09:00",
+        end: t.endTime || "17:00",
+        dailyHours: t.dailyHours || null
+      };
+      (t.courses || []).forEach(cName => {
+        if (!cName) return;
+        if (validCourseNames.size > 0 && !validCourseNames.has(String(cName).trim().toLowerCase())) return;
+        if (!courseTeachers[cName]) courseTeachers[cName] = [];
+        if (!courseTeachers[cName].includes(t.name)) {
+          courseTeachers[cName].push(t.name);
+        }
+      });
+    });
+    this.data.config.courseTeachers = courseTeachers;
+    this.data.config.teacherSchedule = teacherSchedule;
+  }
 
   loadInitialData() {
     try {
@@ -759,7 +808,8 @@ class AdminDashboard {
           scriptUrl: defaultScriptUrl,
           courses: defaultCourses,
           teachers: defaultTeachers,
-          deletedTeachers: []
+          deletedTeachers: [],
+          deletedCourses: []
         };
       }
 
@@ -767,9 +817,21 @@ class AdminDashboard {
         config.deletedTeachers = [];
       }
 
-      if (!Array.isArray(config.courses) || config.courses.length === 0) {
+      if (!Array.isArray(config.deletedCourses)) {
+        config.deletedCourses = [];
+      }
+
+      const delCoursesSet = new Set(config.deletedCourses.map(c => String(c || '').trim().toLowerCase()));
+
+      if (!Array.isArray(config.courses) || (config.courses.length === 0 && config.deletedCourses.length === 0)) {
         config.courses = defaultCourses;
       }
+      config.courses = (config.courses || []).filter(c => {
+        if (!c || !c.name) return false;
+        const idKey = String(c.id || '').trim().toLowerCase();
+        const nameKey = String(c.name || '').trim().toLowerCase();
+        return !delCoursesSet.has(idKey) && !delCoursesSet.has(nameKey);
+      });
 
       if (!Array.isArray(config.teachers) || (config.teachers.length === 0 && config.deletedTeachers.length === 0)) {
         config.teachers = defaultTeachers;
@@ -832,6 +894,7 @@ class AdminDashboard {
   }
 
   saveData() {
+    this.rebuildCourseTeachersAndSchedule();
     const storageKey = `zn_admin_config_${this.district}`;
     localStorage.setItem(storageKey, JSON.stringify(this.data.config));
     localStorage.setItem(`zn_bookings_${this.district}`, JSON.stringify(this.data.bookings));
@@ -1646,7 +1709,7 @@ class AdminDashboard {
 
     this.closeAllModals();
     this.saveData();
-    this.renderTeachersTable();
+    this.renderAll();
     this.showToast(I18N[this.lang].msgTeacherAdded, 'success');
   }
 
@@ -1684,8 +1747,7 @@ class AdminDashboard {
       }
 
       this.saveData();
-      this.renderTeachersTable();
-      this.renderScheduleTable();
+      this.renderAll();
       this.showToast(I18N[this.lang].msgDeleted, 'info');
 
       // 4. Immediately sync deletion to server so refresh never restores it!
@@ -1827,6 +1889,10 @@ class AdminDashboard {
       return;
     }
 
+    if (!Array.isArray(this.data.config.deletedCourses)) this.data.config.deletedCourses = [];
+    const nameLower = name.trim().toLowerCase();
+    this.data.config.deletedCourses = this.data.config.deletedCourses.filter(d => d !== nameLower && d !== (this.editingCourseId || ''));
+
     if (this.editingCourseId) {
       const idx = this.data.config.courses.findIndex(c => c.id === this.editingCourseId);
       if (idx !== -1) {
@@ -1845,16 +1911,38 @@ class AdminDashboard {
 
     this.closeAllModals();
     this.saveData();
-    this.renderCoursesTable();
+    this.renderAll();
     this.showToast(I18N[this.lang].msgCourseAdded, 'success');
   }
 
   deleteCourse(id) {
     this.openConfirmModal("Kursni o'chirishni tasdiqlaysizmi?", "Ushbu kurs butunlay o'chiriladi.", () => {
-      this.data.config.courses = this.data.config.courses.filter(c => c.id !== id);
+      const course = this.data.config.courses.find(c => c.id === id || c.name === id);
+      const name = course ? course.name : null;
+      if (!Array.isArray(this.data.config.deletedCourses)) this.data.config.deletedCourses = [];
+      if (id && !this.data.config.deletedCourses.includes(id.toLowerCase())) {
+        this.data.config.deletedCourses.push(id.toLowerCase());
+      }
+      if (name && !this.data.config.deletedCourses.includes(name.trim().toLowerCase())) {
+        this.data.config.deletedCourses.push(name.trim().toLowerCase());
+      }
+
+      // Remove from all teachers' courses array
+      if (name && Array.isArray(this.data.config.teachers)) {
+        this.data.config.teachers.forEach(t => {
+          if (Array.isArray(t.courses)) {
+            t.courses = t.courses.filter(cn => cn !== name);
+          }
+        });
+      }
+
+      this.data.config.courses = this.data.config.courses.filter(c => c.id !== id && c.name !== id);
       this.saveData();
-      this.renderCoursesTable();
+      this.renderAll();
       this.showToast(I18N[this.lang].msgDeleted, 'info');
+
+      // Immediately sync deletion to server so refresh never restores it!
+      this.syncToGoogleSheets(true);
     });
   }
 
@@ -2242,6 +2330,7 @@ class AdminDashboard {
           ...remoteCfg,
           teachers: remoteTeachers,
           deletedTeachers: json.deletedTeachers || remoteCfg.deletedTeachers || [],
+          deletedCourses: json.deletedCourses || remoteCfg.deletedCourses || [],
           courses: Array.isArray(remoteCourses) && remoteCourses.length > 0 ? remoteCourses : null,
           holidayDates: json.holidayDates || remoteCfg.holidayDates || [],
           teacherSchedule: json.teacherSchedule || remoteCfg.teacherSchedule || {}
@@ -2261,6 +2350,19 @@ class AdminDashboard {
             return !delList.includes(id) && !delList.includes(nameKey) && (!clean || !delList.includes(clean));
           });
         }
+
+        // Extra guarantee: filter out any course in deletedCourses list
+        const delCoursesList = Array.isArray(this.data.config.deletedCourses) ? this.data.config.deletedCourses : [];
+        if (delCoursesList.length > 0 && Array.isArray(this.data.config.courses)) {
+          this.data.config.courses = this.data.config.courses.filter(c => {
+            if (!c || !c.name) return false;
+            const id = String(c.id || '').trim().toLowerCase();
+            const nameKey = String(c.name || '').trim().toLowerCase();
+            return !delCoursesList.includes(id) && !delCoursesList.includes(nameKey);
+          });
+        }
+
+        this.rebuildCourseTeachersAndSchedule();
 
         if (Array.isArray(json.bookings) && json.bookings.length > 0) {
           const bMap = new Map();
