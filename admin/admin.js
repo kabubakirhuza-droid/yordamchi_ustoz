@@ -583,25 +583,25 @@ class AdminDashboard {
     this.bindEvents();
     this.applyLanguage(this.lang);
     
-    // Check for Magic Admin Invite Link (?key=admin, ?auth=sergeli, ?invite=admin, ?access=admin, etc.)
+    // Check for Magic Admin Invite Link (?key=admin, ?auth=uchtepa, ?invite=admin, ?access=admin, etc.)
     try {
       const urlParams = new URLSearchParams(window.location.search);
       const isMagicKey = (
         urlParams.get('key') === 'admin' ||
-        urlParams.get('auth') === 'sergeli' ||
         urlParams.get('auth') === 'uchtepa' ||
+        urlParams.get('auth') === 'sergeli' ||
         urlParams.get('auth') === 'admin' ||
         urlParams.get('invite') === 'admin' ||
         urlParams.get('access') === 'admin' ||
         urlParams.get('admin') === 'true' ||
         urlParams.get('token') === 'zinnur2026' ||
-        urlParams.get('token') === 'sergeli' ||
-        urlParams.get('token') === 'uchtepa'
+        urlParams.get('token') === 'uchtepa' ||
+        urlParams.get('token') === 'sergeli'
       );
 
       if (isMagicKey) {
         this.isAuthenticated = true;
-        const requestedDistrict = urlParams.get('district') || (urlParams.get('auth') === 'uchtepa' || urlParams.get('token') === 'uchtepa' ? 'uchtepa' : this.district);
+        const requestedDistrict = urlParams.get('district') || (urlParams.get('auth') === 'sergeli' || urlParams.get('token') === 'sergeli' ? 'sergeli' : this.district);
         this.district = requestedDistrict;
         this.currentRole = this.district === 'sergeli' ? 'Sergeli Tumani Administratori' : 'Uchtepa Tumani Administratori';
         
@@ -645,10 +645,10 @@ class AdminDashboard {
       const saved = localStorage.getItem('zn_admin_district');
       if (saved && (saved === 'sergeli' || saved === 'uchtepa')) return saved;
       const path = window.location.pathname.toLowerCase();
-      if (path.includes('/sergeli')) return 'sergeli';
       if (path.includes('/uchtepa')) return 'uchtepa';
-      if (window.location.hostname.includes('ser')) return 'sergeli';
+      if (path.includes('/sergeli')) return 'sergeli';
       if (window.location.hostname.includes('uch') || window.location.hostname.includes('ut')) return 'uchtepa';
+      if (window.location.hostname.includes('ser')) return 'sergeli';
     } catch(e) {}
     return 'sergeli';
   }
@@ -693,18 +693,67 @@ class AdminDashboard {
       merged.teachers = [];
     }
 
-    // Courses: prefer remote array if non-empty
-    if (Array.isArray(remoteCfg.courses) && remoteCfg.courses.length > 0) {
-      merged.courses = remoteCfg.courses;
-    } else if (remoteCfg.courses === null) {
-      merged.courses = localCfg.courses || merged.courses;
+    // Merge and deduplicate deletedCourses
+    const localDelCourses = Array.isArray(localCfg.deletedCourses) ? localCfg.deletedCourses : [];
+    const remoteDelCourses = Array.isArray(remoteCfg.deletedCourses) ? remoteCfg.deletedCourses : [];
+    const allDeletedCourses = Array.from(new Set([...localDelCourses, ...remoteDelCourses].map(c => String(c || '').trim().toLowerCase()))).filter(Boolean);
+    merged.deletedCourses = allDeletedCourses;
+
+    const isCourseDeleted = (c) => {
+      if (!c || !c.name) return true;
+      const id = String(c.id || '').trim().toLowerCase();
+      const name = String(c.name || '').trim().toLowerCase();
+      return allDeletedCourses.includes(id) || allDeletedCourses.includes(name);
+    };
+
+    // Courses: prefer remote array if non-empty, filtered against deletedCourses!
+    if (Array.isArray(remoteCfg.courses)) {
+      merged.courses = remoteCfg.courses.filter(c => !isCourseDeleted(c));
+    } else if (Array.isArray(localCfg.courses)) {
+      merged.courses = localCfg.courses.filter(c => !isCourseDeleted(c));
+    }
+
+    // Strip deleted courses from teachers
+    if (Array.isArray(merged.teachers) && allDeletedCourses.length > 0) {
+      merged.teachers.forEach(t => {
+        if (Array.isArray(t.courses)) {
+          t.courses = t.courses.filter(cn => !allDeletedCourses.includes(String(cn).trim().toLowerCase()));
+        }
+      });
     }
 
     merged.scriptUrl = remoteCfg.scriptUrl || localCfg.scriptUrl || DEFAULT_SCRIPT_URL;
     return merged;
   }
 
+  rebuildCourseTeachersAndSchedule() {
+    if (!this.data || !this.data.config) return;
+    const teachers = this.data.config.teachers || [];
+    const courseTeachers = {};
+    const teacherSchedule = {};
+    const coursesList = this.data.config.courses || [];
+    const validCourseNames = new Set(coursesList.map(c => typeof c === 'string' ? c.trim().toLowerCase() : String(c.name || '').trim().toLowerCase()));
 
+    teachers.forEach(t => {
+      if (!t || !t.name) return;
+      teacherSchedule[t.name] = {
+        offDays: t.daysOff || [],
+        start: t.startTime || "09:00",
+        end: t.endTime || "17:00",
+        dailyHours: t.dailyHours || null
+      };
+      (t.courses || []).forEach(cName => {
+        if (!cName) return;
+        if (validCourseNames.size > 0 && !validCourseNames.has(String(cName).trim().toLowerCase())) return;
+        if (!courseTeachers[cName]) courseTeachers[cName] = [];
+        if (!courseTeachers[cName].includes(t.name)) {
+          courseTeachers[cName].push(t.name);
+        }
+      });
+    });
+    this.data.config.courseTeachers = courseTeachers;
+    this.data.config.teacherSchedule = teacherSchedule;
+  }
 
   loadInitialData() {
     try {
@@ -727,24 +776,16 @@ class AdminDashboard {
       ];
 
       const defaultTeachersUchtepa = [
-        { id: "t_xadija", name: "Xadija ustoz", login: "+998 92 022 87 40", phone: "+998 92 022 87 40", pin: "2318", courses: ["Arab tili - Harf", "Arab tili - Qoida", "Arab tili - Amaliyot"], startTime: "09:00", endTime: "17:00", daysOff: [] },
-        { id: "t_abubakir", name: "Abubakir Ustoz", login: "+998 90 033 51 02", phone: "+998 90 033 51 02", pin: "0802", courses: ["Arab tili - Harf", "Arab tili - Qoida", "Arab tili - Amaliyot", "Arab tili grammatikasi", "Ingliz tili", "Nurli Bolajon"], startTime: "08:00", endTime: "18:00", daysOff: [] },
-        { id: "t1", name: "Fotima Ustoza", login: "+998 90 987 65 43", phone: "+998 90 987 65 43", pin: "4821", courses: ["Arab tili - Harf", "Arab tili - Qoida", "Arab tili - Amaliyot", "Nurli Bolajon"], startTime: "08:00", endTime: "17:00", daysOff: [0] },
-        { id: "t2", name: "Mubina Ustoza", login: "+998 93 111 22 33", phone: "+998 93 111 22 33", pin: "7193", courses: ["Arab tili - Harf", "Arab tili - Qoida", "Arab tili - Amaliyot", "Nurli Bolajon"], startTime: "09:00", endTime: "17:00", daysOff: [] },
-        { id: "t3", name: "Madina Ustoza", login: "+998 94 222 33 44", phone: "+998 94 222 33 44", pin: "3305", courses: ["Arab tili - Harf", "Arab tili - Qoida", "Arab tili - Amaliyot"], startTime: "08:00", endTime: "12:00", daysOff: [0, 6] },
-        { id: "t4", name: "Samira ustoza", login: "+998 97 333 44 55", phone: "+998 97 333 44 55", pin: "9244", courses: ["Arab tili - Harf", "Arab tili - Qoida", "Arab tili - Amaliyot"], startTime: "09:00", endTime: "17:00", daysOff: [4] },
-        { id: "t5", name: "Saida Ustoza", login: "+998 99 444 55 66", phone: "+998 99 444 55 66", pin: "6182", courses: ["Arab tili - Harf", "Arab tili - Qoida", "Arab tili - Amaliyot"], startTime: "09:00", endTime: "12:00", daysOff: [4] },
-        { id: "t6", name: "Muslima Ustoza", login: "+998 91 555 66 77", phone: "+998 91 555 66 77", pin: "5519", courses: ["Arab tili grammatikasi"], startTime: "09:00", endTime: "17:00", daysOff: [0] },
-        { id: "t7", name: "Mohinur Ustoza", login: "+998 98 666 77 88", phone: "+998 98 666 77 88", pin: "8407", courses: ["Ingliz tili"], startTime: "09:00", endTime: "12:00", daysOff: [] }
+        { id: "t_1790940388871", name: "Sarvara", login: "+998 90 123 45 67", phone: "+998 90 123 45 67", pin: "6288", courses: ["Nurli Bolajon"], startTime: "14:00", endTime: "17:00", daysOff: [6, 0] },
+        { id: "t_1790940541826", name: "Mahbuba U", login: "+998 91 234 56 78", phone: "+998 91 234 56 78", pin: "2314", courses: ["Arab tili grammatikasi", "Arab tili - Fonetika"], startTime: "08:00", endTime: "17:00", daysOff: [] },
+        { id: "t_1791121070983", name: "Fotima U", login: "+998 93 345 67 89", phone: "+998 93 345 67 89", pin: "9668", courses: ["Arab tili - Fonetika"], startTime: "08:00", endTime: "12:00", daysOff: [0] },
+        { id: "t_1791121123092", name: "Munira U", login: "+998 94 456 78 90", phone: "+998 94 456 78 90", pin: "7415", courses: ["Arab tili grammatikasi", "Arab tili - Fonetika"], startTime: "08:00", endTime: "17:00", daysOff: [] },
+        { id: "t_1791172129106", name: "Mumtoza begim", login: "+998 97 567 89 01", phone: "+998 97 567 89 01", pin: "8639", courses: ["Ingliz tili"], startTime: "14:00", endTime: "17:00", daysOff: [2, 4, 0] }
       ];
 
       const defaultTeachersSergeli = [
-        { id: "t_ser_1", name: "Fazilat Ustoza", login: "+998 90 111 22 33", phone: "+998 90 111 22 33", pin: "1122", courses: ["Arab tili - Harf", "Arab tili - Qoida", "Arab tili - Amaliyot", "Nurli Bolajon"], startTime: "09:00", endTime: "17:00", daysOff: [4] },
-        { id: "t_ser_2", name: "Feruza Ustoz", login: "+998 93 222 33 44", phone: "+998 93 222 33 44", pin: "2233", courses: ["Arab tili - Harf", "Arab tili - Qoida", "Arab tili - Amaliyot"], startTime: "13:00", endTime: "17:00", daysOff: [] },
-        { id: "t_ser_3", name: "Kamola Ustoza", login: "+998 94 333 44 55", phone: "+998 94 333 44 55", pin: "3344", courses: ["Arab tili - Harf", "Arab tili - Qoida", "Arab tili - Amaliyot", "Nurli Bolajon"], startTime: "09:00", endTime: "17:00", daysOff: [0, 6] },
-        { id: "t_ser_4", name: "Mohinur Ustoza", login: "+998 98 666 77 88", phone: "+998 98 666 77 88", pin: "8407", courses: ["Ingliz tili"], startTime: "09:00", endTime: "12:00", daysOff: [] },
-        { id: "t_ser_5", name: "Nargiza Ustoza", login: "+998 97 555 66 77", phone: "+998 97 555 66 77", pin: "5566", courses: ["Arab tili - Harf", "Arab tili - Qoida", "Arab tili - Amaliyot", "Arab tili grammatikasi"], startTime: "09:00", endTime: "17:00", daysOff: [0] },
-        { id: "t_ser_6", name: "Risolat Ustoza", login: "+998 99 777 88 99", phone: "+998 99 777 88 99", pin: "7788", courses: ["Arab tili - Harf", "Arab tili - Qoida", "Arab tili - Amaliyot"], startTime: "09:00", endTime: "17:00", daysOff: [0] }
+        { id: "t_1790852387410", name: "Feruza ustoza", login: "+998 99 999 99 99", phone: "+998 99 999 99 99", pin: "9999", courses: ["Arab tili - Harf", "Arab tili - Qoida", "Arab tili - Amaliyot"], startTime: "13:00", endTime: "17:00", daysOff: [0] },
+        { id: "t_1790859927339", name: "Xadicha Ustoza", login: "+998 11 111 11 1", phone: "+998 11 111 11 1", pin: "1111", courses: ["Arab tili - Harf", "Arab tili - Qoida", "Arab tili - Amaliyot"], startTime: "09:00", endTime: "17:00", daysOff: [6] }
       ];
 
       const defaultScriptUrl = this.district === 'sergeli'
@@ -759,7 +800,8 @@ class AdminDashboard {
           scriptUrl: defaultScriptUrl,
           courses: defaultCourses,
           teachers: defaultTeachers,
-          deletedTeachers: []
+          deletedTeachers: [],
+          deletedCourses: []
         };
       }
 
@@ -767,9 +809,21 @@ class AdminDashboard {
         config.deletedTeachers = [];
       }
 
-      if (!Array.isArray(config.courses) || config.courses.length === 0) {
+      if (!Array.isArray(config.deletedCourses)) {
+        config.deletedCourses = [];
+      }
+
+      const delCoursesSet = new Set(config.deletedCourses.map(c => String(c || '').trim().toLowerCase()));
+
+      if (!Array.isArray(config.courses) || (config.courses.length === 0 && config.deletedCourses.length === 0)) {
         config.courses = defaultCourses;
       }
+      config.courses = (config.courses || []).filter(c => {
+        if (!c || !c.name) return false;
+        const idKey = String(c.id || '').trim().toLowerCase();
+        const nameKey = String(c.name || '').trim().toLowerCase();
+        return !delCoursesSet.has(idKey) && !delCoursesSet.has(nameKey);
+      });
 
       if (!Array.isArray(config.teachers) || (config.teachers.length === 0 && config.deletedTeachers.length === 0)) {
         config.teachers = defaultTeachers;
@@ -832,6 +886,7 @@ class AdminDashboard {
   }
 
   saveData() {
+    this.rebuildCourseTeachersAndSchedule();
     const storageKey = `zn_admin_config_${this.district}`;
     localStorage.setItem(storageKey, JSON.stringify(this.data.config));
     localStorage.setItem(`zn_bookings_${this.district}`, JSON.stringify(this.data.bookings));
@@ -1224,28 +1279,28 @@ class AdminDashboard {
       const HASH_SERGELI = '1d933f2d585458019316ca52ff7b1faa24ecd8cdc1840d19ffc9956646858ae0';
       const HASH_UCHTEPA = '24b3b75cf0d61d4faaa94e7871cd9ab34e7c5e4fdf33c601faff214355a7da16';
 
-      const isUchtepa = login.includes('uchtepa');
-      const expectedHash = isUchtepa ? HASH_UCHTEPA : HASH_SERGELI;
+      const isSergeli = login.includes('sergeli');
+      const expectedHash = isSergeli ? HASH_SERGELI : HASH_UCHTEPA;
       const passOk = (
         passHash === expectedHash ||
-        pass === (isUchtepa ? 'Uchtepa#Zinnur2026' : 'Sergeli#Zinnur2026') ||
+        pass === (isSergeli ? 'Sergeli#Zinnur2026' : 'Uchtepa#Zinnur2026') ||
         pass === 'admin123' ||
         pass === 'admin2026' ||
         pass === 'admin' ||
         pass === 'Zinnur2026' ||
-        pass === 'sergeli2026'
+        pass === 'uchtepa2026'
       );
       const loginOk = (
-        login === (isUchtepa ? 'zinnur-uchtepa' : 'zinnur-sergeli') ||
+        login === (isSergeli ? 'zinnur-sergeli' : 'zinnur-uchtepa') ||
         login === 'admin' ||
-        login === 'sergeli' ||
         login === 'uchtepa' ||
+        login === 'sergeli' ||
         login === 'zinnur'
       );
 
       if (loginOk && passOk) {
         this.isAuthenticated = true;
-        this.district = isUchtepa ? 'uchtepa' : 'sergeli';
+        this.district = isSergeli ? 'sergeli' : 'uchtepa';
         this.currentRole = this.district === 'sergeli' ? 'Sergeli Tumani Administratori' : 'Uchtepa Tumani Administratori';
         
         localStorage.setItem('zn_admin_auth', 'true');
@@ -1562,96 +1617,119 @@ class AdminDashboard {
     this.openTeacherModal(teacher);
   }
 
-  saveTeacher(e) {
+  async saveTeacher(e) {
     if (e) e.preventDefault();
     if (this._isSavingTeacher) return;
     this._isSavingTeacher = true;
-    setTimeout(() => { this._isSavingTeacher = false; }, 500);
 
-    const name = document.getElementById('teacherName')?.value.trim();
-    const login = document.getElementById('teacherLogin')?.value.trim();
-    const pin = document.getElementById('teacherPin')?.value.trim();
-
-    if (!name || !login || !pin) {
-      this.showToast("Iltimos, ism, login va PIN-kodni kiriting!", "error");
-      return;
+    const submitBtn = e?.target?.querySelector('button[type="submit"]') || document.querySelector('#formTeacher button[type="submit"]');
+    const origBtnText = submitBtn ? submitBtn.innerText : '';
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.innerText = "Google Sheets ga saqlanmoqda...";
     }
 
-    const courses = Array.from(document.querySelectorAll('input[name="teacherCoursesList"]:checked')).map(cb => cb.value);
+    try {
+      const name = document.getElementById('teacherName')?.value.trim();
+      const login = document.getElementById('teacherLogin')?.value.trim();
+      const pin = document.getElementById('teacherPin')?.value.trim();
 
-    // Collect per-day weekly hours
-    const dailyHours = {};
-    const daysOff = [];
-    let earliestStart = '23:59';
-    let latestEnd = '00:00';
-
-    WEEK_DAYS.forEach(day => {
-      const isWork = document.getElementById(`teacherDayWork_${day.dow}`)?.checked || false;
-      const start = document.getElementById(`teacherDayStart_${day.dow}`)?.value || '09:00';
-      const end = document.getElementById(`teacherDayEnd_${day.dow}`)?.value || '17:00';
-
-      dailyHours[day.dow] = { isWork, start, end };
-      if (!isWork) {
-        daysOff.push(day.dow);
-      } else {
-        if (start < earliestStart) earliestStart = start;
-        if (end > latestEnd) latestEnd = end;
+      if (!name || !login || !pin) {
+        this.showToast("Iltimos, ism, login va PIN-kodni kiriting!", "error");
+        return;
       }
-    });
 
-    const startTime = earliestStart !== '23:59' ? earliestStart : '09:00';
-    const endTime = latestEnd !== '00:00' ? latestEnd : '17:00';
-    const formattedLogin = formatPhoneNumber(login);
-    const cleanPhone = cleanPhoneDigits(login);
-    const nameLower = name.trim().toLowerCase();
+      const courses = Array.from(document.querySelectorAll('input[name="teacherCoursesList"]:checked')).map(cb => cb.value);
 
-    // REMOVE from deletedTeachers list so this teacher is NOT skipped on page reload
-    if (Array.isArray(this.data.config.deletedTeachers)) {
-      this.data.config.deletedTeachers = this.data.config.deletedTeachers.filter(d => 
-        d !== (this.editingTeacherId || '') && 
-        d !== nameLower && 
-        d !== cleanPhone &&
-        d !== name &&
-        d !== login
-      );
-    }
+      // Collect per-day weekly hours
+      const dailyHours = {};
+      const daysOff = [];
+      let earliestStart = '23:59';
+      let latestEnd = '00:00';
 
-    if (this.editingTeacherId) {
-      const idx = this.data.config.teachers.findIndex(t => t.id === this.editingTeacherId);
-      if (idx !== -1) {
-        this.data.config.teachers[idx] = {
-          ...this.data.config.teachers[idx],
-          name, login: formattedLogin, phone: formattedLogin, pin, courses, startTime, endTime, daysOff, dailyHours
-        };
-      }
-    } else {
-      const existingIdx = this.data.config.teachers.findIndex(t => {
-        const tClean = cleanPhoneDigits(t.phone || t.login);
-        return (cleanPhone && tClean === cleanPhone) || (t.name.trim().toLowerCase() === nameLower);
+      WEEK_DAYS.forEach(day => {
+        const isWork = document.getElementById(`teacherDayWork_${day.dow}`)?.checked || false;
+        const start = document.getElementById(`teacherDayStart_${day.dow}`)?.value || '09:00';
+        const end = document.getElementById(`teacherDayEnd_${day.dow}`)?.value || '17:00';
+
+        dailyHours[day.dow] = { isWork, start, end };
+        if (!isWork) {
+          daysOff.push(day.dow);
+        } else {
+          if (start < earliestStart) earliestStart = start;
+          if (end > latestEnd) latestEnd = end;
+        }
       });
 
-      if (existingIdx !== -1) {
-        this.data.config.teachers[existingIdx] = {
-          ...this.data.config.teachers[existingIdx],
-          name, login: formattedLogin, phone: formattedLogin, pin, courses, startTime, endTime, daysOff, dailyHours
-        };
+      const startTime = earliestStart !== '23:59' ? earliestStart : '09:00';
+      const endTime = latestEnd !== '00:00' ? latestEnd : '17:00';
+      const formattedLogin = formatPhoneNumber(login);
+      const cleanPhone = cleanPhoneDigits(login);
+      const nameLower = name.trim().toLowerCase();
+
+      // REMOVE from deletedTeachers list so this teacher is NOT skipped on page reload
+      if (Array.isArray(this.data.config.deletedTeachers)) {
+        this.data.config.deletedTeachers = this.data.config.deletedTeachers.filter(d => 
+          d !== (this.editingTeacherId || '') && 
+          d !== nameLower && 
+          d !== cleanPhone &&
+          d !== name &&
+          d !== login
+        );
+      }
+
+      if (this.editingTeacherId) {
+        const idx = this.data.config.teachers.findIndex(t => t.id === this.editingTeacherId);
+        if (idx !== -1) {
+          this.data.config.teachers[idx] = {
+            ...this.data.config.teachers[idx],
+            name, login: formattedLogin, phone: formattedLogin, pin, courses, startTime, endTime, daysOff, dailyHours
+          };
+        }
       } else {
-        const newTeacher = {
-          id: "t_" + Date.now(),
-          name, login: formattedLogin, phone: formattedLogin, pin, courses, startTime, endTime, daysOff, dailyHours
-        };
-        this.data.config.teachers.push(newTeacher);
+        const existingIdx = this.data.config.teachers.findIndex(t => {
+          const tClean = cleanPhoneDigits(t.phone || t.login);
+          return (cleanPhone && tClean === cleanPhone) || (t.name.trim().toLowerCase() === nameLower);
+        });
+
+        if (existingIdx !== -1) {
+          this.data.config.teachers[existingIdx] = {
+            ...this.data.config.teachers[existingIdx],
+            name, login: formattedLogin, phone: formattedLogin, pin, courses, startTime, endTime, daysOff, dailyHours
+          };
+        } else {
+          const newTeacher = {
+            id: "t_" + Date.now(),
+            name, login: formattedLogin, phone: formattedLogin, pin, courses, startTime, endTime, daysOff, dailyHours
+          };
+          this.data.config.teachers.push(newTeacher);
+        }
+      }
+
+      this.rebuildCourseTeachersAndSchedule();
+      const storageKey = `zn_admin_config_${this.district}`;
+      localStorage.setItem(storageKey, JSON.stringify(this.data.config));
+
+      this.showToast("Google Sheets serveriga saqlanmoqda...", "info");
+      await this.syncToGoogleSheets(true);
+
+      this.closeAllModals();
+      this.renderAll();
+      this.showToast(I18N[this.lang].msgTeacherAdded, 'success');
+    } catch(err) {
+      console.error("Teacher save error:", err);
+      this.showToast("Xatolik yuz berdi!", "error");
+    } finally {
+      this._isSavingTeacher = false;
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerText = origBtnText;
       }
     }
-
-    this.closeAllModals();
-    this.saveData();
-    this.renderTeachersTable();
-    this.showToast(I18N[this.lang].msgTeacherAdded, 'success');
   }
 
   deleteTeacher(id) {
-    this.openConfirmModal("Ustozani o'chirishni tasdiqlaysizmi?", "Bu amalni ortga qaytarib bo'lmaydi. Ustoza butunlay o'chiriladi.", () => {
+    this.openConfirmModal("Ustozani o'chirishni tasdiqlaysizmi?", "Bu amalni ortga qaytarib bo'lmaydi. Ustoza butunlay o'chiriladi.", async () => {
       const teacherToDelete = this.data.config.teachers.find(t => t.id === id);
       const name = teacherToDelete ? teacherToDelete.name : null;
       const cleanPhone = teacherToDelete ? cleanPhoneDigits(teacherToDelete.phone || teacherToDelete.login) : null;
@@ -1684,12 +1762,11 @@ class AdminDashboard {
       }
 
       this.saveData();
-      this.renderTeachersTable();
-      this.renderScheduleTable();
+      this.renderAll();
       this.showToast(I18N[this.lang].msgDeleted, 'info');
 
       // 4. Immediately sync deletion to server so refresh never restores it!
-      this.syncToGoogleSheets(true);
+      await this.syncToGoogleSheets(true);
     });
   }
 
@@ -1813,48 +1890,101 @@ class AdminDashboard {
     this.openCourseModal(course);
   }
 
-  saveCourse(e) {
+  async saveCourse(e) {
     if (e) e.preventDefault();
-    const name = document.getElementById('courseName')?.value.trim();
-    const startTime = document.getElementById('courseStartTime')?.value || '09:00';
-    const endTime = document.getElementById('courseEndTime')?.value || '17:00';
-    const slotDuration = parseInt(document.getElementById('courseSlotDuration')?.value, 10) || 30;
-    const capacity = parseInt(document.getElementById('courseCapacity')?.value, 10) || 1;
-    const excludedDays = Array.from(document.querySelectorAll('input[name="courseExcludedDays"]:checked')).map(cb => parseInt(cb.value, 10));
+    if (this._isSavingCourse) return;
+    this._isSavingCourse = true;
 
-    if (!name) {
-      this.showToast("Kurs nomini kiriting!", "error");
-      return;
+    const submitBtn = e?.target?.querySelector('button[type="submit"]') || document.querySelector('#formCourse button[type="submit"]');
+    const origBtnText = submitBtn ? submitBtn.innerText : '';
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.innerText = "Google Sheets ga saqlanmoqda...";
     }
 
-    if (this.editingCourseId) {
-      const idx = this.data.config.courses.findIndex(c => c.id === this.editingCourseId);
-      if (idx !== -1) {
-        this.data.config.courses[idx] = {
-          ...this.data.config.courses[idx],
-          name, startTime, endTime, slotDuration, capacity, excludedDays
-        };
+    try {
+      const name = document.getElementById('courseName')?.value.trim();
+      const startTime = document.getElementById('courseStartTime')?.value || '09:00';
+      const endTime = document.getElementById('courseEndTime')?.value || '17:00';
+      const slotDuration = parseInt(document.getElementById('courseSlotDuration')?.value, 10) || 30;
+      const capacity = parseInt(document.getElementById('courseCapacity')?.value, 10) || 1;
+      const excludedDays = Array.from(document.querySelectorAll('input[name="courseExcludedDays"]:checked')).map(cb => parseInt(cb.value, 10));
+
+      if (!name) {
+        this.showToast("Kurs nomini kiriting!", "error");
+        return;
       }
-    } else {
-      const newCourse = {
-        id: "c_" + Date.now(),
-        name, startTime, endTime, slotDuration, capacity, excludedDays, active: true
-      };
-      this.data.config.courses.push(newCourse);
-    }
 
-    this.closeAllModals();
-    this.saveData();
-    this.renderCoursesTable();
-    this.showToast(I18N[this.lang].msgCourseAdded, 'success');
+      if (!Array.isArray(this.data.config.deletedCourses)) this.data.config.deletedCourses = [];
+      const nameLower = name.trim().toLowerCase();
+      this.data.config.deletedCourses = this.data.config.deletedCourses.filter(d => d !== nameLower && d !== (this.editingCourseId || ''));
+
+      if (this.editingCourseId) {
+        const idx = this.data.config.courses.findIndex(c => c.id === this.editingCourseId);
+        if (idx !== -1) {
+          this.data.config.courses[idx] = {
+            ...this.data.config.courses[idx],
+            name, startTime, endTime, slotDuration, capacity, excludedDays
+          };
+        }
+      } else {
+        const newCourse = {
+          id: "c_" + Date.now(),
+          name, startTime, endTime, slotDuration, capacity, excludedDays, active: true
+        };
+        this.data.config.courses.push(newCourse);
+      }
+
+      this.rebuildCourseTeachersAndSchedule();
+      const storageKey = `zn_admin_config_${this.district}`;
+      localStorage.setItem(storageKey, JSON.stringify(this.data.config));
+
+      this.showToast("Google Sheets serveriga saqlanmoqda...", "info");
+      await this.syncToGoogleSheets(true);
+
+      this.closeAllModals();
+      this.renderAll();
+      this.showToast(I18N[this.lang].msgCourseAdded || "Kurs muvaffaqiyatli saqlandi!", 'success');
+    } catch(err) {
+      console.error("Save course error:", err);
+      this.showToast("Xatolik yuz berdi!", "error");
+    } finally {
+      this._isSavingCourse = false;
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerText = origBtnText;
+      }
+    }
   }
 
   deleteCourse(id) {
-    this.openConfirmModal("Kursni o'chirishni tasdiqlaysizmi?", "Ushbu kurs butunlay o'chiriladi.", () => {
-      this.data.config.courses = this.data.config.courses.filter(c => c.id !== id);
+    this.openConfirmModal("Kursni o'chirishni tasdiqlaysizmi?", "Ushbu kurs butunlay o'chiriladi.", async () => {
+      const course = this.data.config.courses.find(c => c.id === id || c.name === id);
+      const name = course ? course.name : null;
+      if (!Array.isArray(this.data.config.deletedCourses)) this.data.config.deletedCourses = [];
+      if (id && !this.data.config.deletedCourses.includes(id.toLowerCase())) {
+        this.data.config.deletedCourses.push(id.toLowerCase());
+      }
+      if (name && !this.data.config.deletedCourses.includes(name.trim().toLowerCase())) {
+        this.data.config.deletedCourses.push(name.trim().toLowerCase());
+      }
+
+      // Remove from all teachers' courses array
+      if (name && Array.isArray(this.data.config.teachers)) {
+        this.data.config.teachers.forEach(t => {
+          if (Array.isArray(t.courses)) {
+            t.courses = t.courses.filter(cn => cn !== name);
+          }
+        });
+      }
+
+      this.data.config.courses = this.data.config.courses.filter(c => c.id !== id && c.name !== id);
       this.saveData();
-      this.renderCoursesTable();
+      this.renderAll();
       this.showToast(I18N[this.lang].msgDeleted, 'info');
+
+      // Immediately sync deletion to server so refresh never restores it!
+      await this.syncToGoogleSheets(true);
     });
   }
 
@@ -2154,8 +2284,9 @@ class AdminDashboard {
       };
 
       // 1. Sync via Serverless API
+      let syncedData = null;
       try {
-        await fetch('/api/sync', {
+        const res = await fetch('/api/sync', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -2164,15 +2295,30 @@ class AdminDashboard {
           },
           body: JSON.stringify(payload)
         });
+        if (res.ok) {
+          syncedData = await res.json();
+        }
       } catch (e) {}
 
       // 2. Direct Sync to Google Script
-      await fetch(url, {
-        method: "POST",
-        mode: "no-cors",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
+      try {
+        fetch(url, {
+          method: "POST",
+          mode: "no-cors",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        }).catch(() => {});
+      } catch(e) {}
+
+      if (syncedData && (syncedData.courses || syncedData.teachers)) {
+        if (Array.isArray(syncedData.courses)) this.data.config.courses = syncedData.courses;
+        if (Array.isArray(syncedData.teachers)) this.data.config.teachers = syncedData.teachers;
+        if (syncedData.courseTeachers) this.data.config.courseTeachers = syncedData.courseTeachers;
+        if (syncedData.teacherSchedule) this.data.config.teacherSchedule = syncedData.teacherSchedule;
+        const storageKey = `zn_admin_config_${this.district}`;
+        localStorage.setItem(storageKey, JSON.stringify(this.data.config));
+        this.renderAll();
+      }
 
       if (!isSilent) this.showToast(I18N[this.lang].msgSynced, "success");
     } catch (e) {
@@ -2192,7 +2338,6 @@ class AdminDashboard {
         const apiRes = await fetch(`/api/sync?district=${this.district}&action=getConfig&_t=${Date.now()}`);
         if (apiRes.ok) {
           const apiData = await apiRes.json();
-          // Accept if we have teachers, config, or courses (even empty-teachers default)
           if (apiData && (apiData.config || apiData.teachers !== undefined || apiData.courses)) {
             json = apiData;
           }
@@ -2210,21 +2355,17 @@ class AdminDashboard {
       }
 
       if (json) {
-        // Normalize: extract config and teachers from whatever format GAS returned
         let remoteCfg = {};
         if (json.config && typeof json.config === 'object') {
           remoteCfg = { ...json.config };
         }
 
-        // Teachers: prefer json.teachers array, fallback to json.config.teachers
         const remoteTeachers = Array.isArray(json.teachers) ? json.teachers
           : Array.isArray(json.config?.teachers) ? json.config.teachers
           : [];
 
-        // Courses: GAS may return object (dict) — convert to array if needed
         let remoteCourses = json.courses || json.config?.courses || [];
         if (remoteCourses && !Array.isArray(remoteCourses) && typeof remoteCourses === 'object') {
-          // Convert from {courseName: {startHour, ...}} to array format
           remoteCourses = Object.entries(remoteCourses).map(([name, cfg], i) => ({
             id: `c${i+1}`,
             name,
@@ -2237,17 +2378,16 @@ class AdminDashboard {
           }));
         }
 
-        // Build remote config for merging
         const remoteMerge = {
           ...remoteCfg,
           teachers: remoteTeachers,
           deletedTeachers: json.deletedTeachers || remoteCfg.deletedTeachers || [],
+          deletedCourses: json.deletedCourses || remoteCfg.deletedCourses || [],
           courses: Array.isArray(remoteCourses) && remoteCourses.length > 0 ? remoteCourses : null,
           holidayDates: json.holidayDates || remoteCfg.holidayDates || [],
           teacherSchedule: json.teacherSchedule || remoteCfg.teacherSchedule || {}
         };
 
-        // Merge: respect deletedTeachers and never restore deleted ones
         this.data.config = this.mergeConfigs(this.data.config, remoteMerge);
 
         // Extra guarantee: filter out any teacher in deletedTeachers list
@@ -2261,6 +2401,19 @@ class AdminDashboard {
             return !delList.includes(id) && !delList.includes(nameKey) && (!clean || !delList.includes(clean));
           });
         }
+
+        // Extra guarantee: filter out any course in deletedCourses list
+        const delCoursesList = Array.isArray(this.data.config.deletedCourses) ? this.data.config.deletedCourses : [];
+        if (delCoursesList.length > 0 && Array.isArray(this.data.config.courses)) {
+          this.data.config.courses = this.data.config.courses.filter(c => {
+            if (!c || !c.name) return false;
+            const id = String(c.id || '').trim().toLowerCase();
+            const nameKey = String(c.name || '').trim().toLowerCase();
+            return !delCoursesList.includes(id) && !delCoursesList.includes(nameKey);
+          });
+        }
+
+        this.rebuildCourseTeachersAndSchedule();
 
         if (Array.isArray(json.bookings) && json.bookings.length > 0) {
           const bMap = new Map();

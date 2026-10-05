@@ -137,28 +137,91 @@ function getAppConfig_(){
   return null;
 }
 
-function getEffectiveSlots_(kurs){
+function findCourseConfig_(kurs){
+  if (!kurs) return null;
   const cfg = getAppConfig_();
-  if (cfg && cfg.courses && cfg.courses[kurs]){
-    const c = cfg.courses[kurs];
-    return buildSlots_(c.startHour, c.startMin || 0, c.endHour, c.endMin || 0, c.stepMin || 30);
+  if (!cfg || !cfg.courses) return null;
+  const cleanKurs = String(kurs).trim().toLowerCase();
+
+  if (Array.isArray(cfg.courses)){
+    for (let i = 0; i < cfg.courses.length; i++){
+      const c = cfg.courses[i];
+      if (!c) continue;
+      const cName = typeof c === 'string' ? c : (c.name || '');
+      if (cName.trim().toLowerCase() === cleanKurs){
+        return typeof c === 'object' ? c : { name: c };
+      }
+    }
+  } else if (typeof cfg.courses === 'object'){
+    if (cfg.courses[kurs]) return cfg.courses[kurs];
+    for (let k in cfg.courses){
+      if (k.trim().toLowerCase() === cleanKurs){
+        return cfg.courses[k];
+      }
+    }
+  }
+  return null;
+}
+
+function getEffectiveSlots_(kurs){
+  const c = findCourseConfig_(kurs);
+  if (c){
+    let startH = 9, startM = 0, endH = 17, endM = 0, step = 30;
+    if (c.startTime){
+      const p = String(c.startTime).split(':');
+      startH = Number(p[0]) || 9;
+      startM = Number(p[1]) || 0;
+    } else if (c.startHour !== undefined){
+      startH = Number(c.startHour) || 9;
+      startM = Number(c.startMin) || 0;
+    }
+    if (c.endTime){
+      const p = String(c.endTime).split(':');
+      endH = Number(p[0]) || 17;
+      endM = Number(p[1]) || 0;
+    } else if (c.endHour !== undefined){
+      endH = Number(c.endHour) || 17;
+      endM = Number(c.endMin) || 0;
+    }
+    step = Number(c.slotDuration || c.stepMin) || 30;
+    return buildSlots_(startH, startM, endH, endM, step);
   }
   return COURSE_SLOTS[kurs] || buildSlots_(9, 0, 17, 0, 30);
 }
 
 function getEffectiveCapacity_(kurs){
-  const cfg = getAppConfig_();
-  if (cfg && cfg.courses && cfg.courses[kurs] && cfg.courses[kurs].capacity){
-    return Number(cfg.courses[kurs].capacity);
+  const c = findCourseConfig_(kurs);
+  if (c && c.capacity){
+    return Number(c.capacity);
   }
   return CAPACITIES[kurs] || 4;
 }
 
 function getEffectiveTeachers_(kurs){
   const cfg = getAppConfig_();
-  if (cfg && cfg.courseTeachers && cfg.courseTeachers[kurs]){
-    return cfg.courseTeachers[kurs];
+  const cleanKurs = String(kurs || '').trim().toLowerCase();
+
+  if (cfg && cfg.courseTeachers){
+    if (Array.isArray(cfg.courseTeachers[kurs])) return cfg.courseTeachers[kurs];
+    for (let k in cfg.courseTeachers){
+      if (k.trim().toLowerCase() === cleanKurs && Array.isArray(cfg.courseTeachers[k])){
+        return cfg.courseTeachers[k];
+      }
+    }
   }
+
+  if (cfg && Array.isArray(cfg.teachers)){
+    const matched = [];
+    cfg.teachers.forEach(t => {
+      if (!t || !t.name || t.active === false) return;
+      const tCourses = Array.isArray(t.courses) ? t.courses : (typeof t.courses === 'string' ? t.courses.split(',').map(s => s.trim()) : []);
+      if (tCourses.some(cName => String(cName).trim().toLowerCase() === cleanKurs)){
+        matched.push(t.name);
+      }
+    });
+    if (matched.length > 0) return matched;
+  }
+
   return COURSE_TEACHERS_[kurs] || [];
 }
 
@@ -480,7 +543,11 @@ function saveConfig_(data){
   if (cfg && cfg.config) cfg = cfg.config;
 
   // 1. Script properties ga toza JSON saqlash
-  PropertiesService.getScriptProperties().setProperty('APP_CONFIG', JSON.stringify(cfg));
+  try {
+    PropertiesService.getScriptProperties().setProperty('APP_CONFIG', JSON.stringify(cfg));
+  } catch (propErr) {
+    Logger.log("ScriptProperties error: " + propErr);
+  }
 
   // 2. Sozlamalar varag'ini chiroyli jadval qilib to'ldirish
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -488,6 +555,11 @@ function saveConfig_(data){
   if (!sheet){
     sheet = ss.insertSheet('Sozlamalar');
   }
+
+  // Backup JSON in cell Z1 (column 26) so it never gets lost
+  try {
+    sheet.getRange(1, 26).setValue(JSON.stringify(cfg));
+  } catch (zErr) {}
 
   renderSettingsSheet_(sheet, cfg);
 
@@ -514,6 +586,8 @@ function saveConfig_(data){
   } catch (sheetErr) {
     Logger.log("Error creating course sheets: " + sheetErr);
   }
+
+  SpreadsheetApp.flush();
 }
 
 function renderSettingsSheet_(sheet, cfg){
@@ -656,8 +730,6 @@ function updateBookingStatus_(id, status){
 // -------------------------------------------------------------
 
 function doGet(e){
-  SpreadsheetApp.flush();
-
   const action = e && e.parameter ? e.parameter.action : '';
 
   // 1. Admin Panel: Barcha arizalarni olish
@@ -676,14 +748,14 @@ function doGet(e){
       "Nargiza Ustoza": { offDays: [0],    start: "09:00", end: "17:00" },
       "Risolat Ustoza": { offDays: [0],    start: "09:00", end: "17:00" }
     };
-    const defaultCourses = {
-      "Arab tili - Harf":       { startHour: 9, startMin: 0, endHour: 17, endMin: 0, stepMin: 30, capacity: 4 },
-      "Arab tili - Qoida":      { startHour: 9, startMin: 0, endHour: 17, endMin: 0, stepMin: 30, capacity: 4 },
-      "Arab tili - Amaliyot":   { startHour: 9, startMin: 0, endHour: 17, endMin: 0, stepMin: 30, capacity: 4 },
-      "Arab tili grammatikasi": { startHour: 9, startMin: 0, endHour: 17, endMin: 0, stepMin: 30, capacity: 4 },
-      "Ingliz tili":            { startHour: 9, startMin: 0, endHour: 12, endMin: 0, stepMin: 30, capacity: 1 },
-      "Nurli Bolajon":          { startHour: 13, startMin: 0, endHour: 17, endMin: 0, stepMin: 30, capacity: 1 }
-    };
+    const defaultCourses = [
+      { id: "c1", name: "Arab tili - Harf", startTime: "09:00", endTime: "17:00", slotDuration: 30, capacity: 4, active: true },
+      { id: "c2", name: "Arab tili - Qoida", startTime: "09:00", endTime: "17:00", slotDuration: 30, capacity: 4, active: true },
+      { id: "c3", name: "Arab tili - Amaliyot", startTime: "09:00", endTime: "17:00", slotDuration: 30, capacity: 4, active: true },
+      { id: "c4", name: "Arab tili grammatikasi", startTime: "09:00", endTime: "17:00", slotDuration: 30, capacity: 4, active: true },
+      { id: "c5", name: "Ingliz tili", startTime: "09:00", endTime: "12:00", slotDuration: 30, capacity: 1, active: true },
+      { id: "c6", name: "Nurli Bolajon", startTime: "13:00", endTime: "17:00", slotDuration: 30, capacity: 1, active: true }
+    ];
 
     return jsonOutput_({
       config: cfg,
@@ -691,6 +763,8 @@ function doGet(e){
       courses: cfg.courses || defaultCourses,
       courseTeachers: cfg.courseTeachers || COURSE_TEACHERS_,
       teacherSchedule: cfg.teacherSchedule || defaultTeacherSchedule,
+      deletedTeachers: cfg.deletedTeachers || [],
+      deletedCourses: cfg.deletedCourses || [],
       holidayDates: cfg.holidayDates || ["31.08.2026", "01.09.2026"],
       courseExcludedDays: cfg.courseExcludedDays || { "Nurli Bolajon": [0, 1, 2, 3, 5, 6] }
     });

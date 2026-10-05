@@ -33,26 +33,151 @@ const DEFAULT_COURSES = {
   ]
 };
 
-// Default initial teachers (only used when district has zero data in GAS)
+// Default initial teachers (aligned with live Google Sheets database)
 const DEFAULT_TEACHERS = {
   sergeli: [
-    { id: "t_ser_1", name: "Fazilat Ustoza", phone: "+998 90 111 22 33", pin: "1122", courses: ["Arab tili - Harf", "Arab tili - Qoida", "Arab tili - Amaliyot", "Nurli Bolajon"], startTime: "09:00", endTime: "17:00", daysOff: [4] },
-    { id: "t_ser_2", name: "Feruza Ustoz",   phone: "+998 93 222 33 44", pin: "2233", courses: ["Arab tili - Harf", "Arab tili - Qoida", "Arab tili - Amaliyot"], startTime: "13:00", endTime: "17:00", daysOff: [] },
-    { id: "t_ser_3", name: "Kamola Ustoza",  phone: "+998 94 333 44 55", pin: "3344", courses: ["Arab tili - Harf", "Arab tili - Qoida", "Arab tili - Amaliyot", "Nurli Bolajon"], startTime: "09:00", endTime: "17:00", daysOff: [0, 6] },
-    { id: "t_ser_4", name: "Mohinur Ustoza", phone: "+998 98 666 77 88", pin: "8407", courses: ["Ingliz tili"], startTime: "09:00", endTime: "12:00", daysOff: [] },
-    { id: "t_ser_5", name: "Nargiza Ustoza", phone: "+998 97 555 66 77", pin: "5566", courses: ["Arab tili - Harf", "Arab tili - Qoida", "Arab tili - Amaliyot", "Arab tili grammatikasi"], startTime: "09:00", endTime: "17:00", daysOff: [0] },
-    { id: "t_ser_6", name: "Risolat Ustoza", phone: "+998 99 777 88 99", pin: "7788", courses: ["Arab tili - Harf", "Arab tili - Qoida", "Arab tili - Amaliyot"], startTime: "09:00", endTime: "17:00", daysOff: [0] }
+    {
+      id: "t_1790852387410",
+      name: "Feruza ustoza",
+      phone: "+998 99 999 99 99",
+      login: "+998 99 999 99 99",
+      pin: "9999",
+      courses: ["Arab tili - Harf", "Arab tili - Qoida", "Arab tili - Amaliyot"],
+      startTime: "13:00",
+      endTime: "17:00",
+      daysOff: [0],
+      dailyHours: {
+        "0": { "isWork": false, "start": "09:00", "end": "17:00" },
+        "1": { "isWork": true, "start": "13:00", "end": "17:00" },
+        "2": { "isWork": true, "start": "13:00", "end": "17:00" },
+        "3": { "isWork": true, "start": "13:00", "end": "17:00" },
+        "4": { "isWork": true, "start": "13:00", "end": "17:00" },
+        "5": { "isWork": true, "start": "13:00", "end": "17:00" },
+        "6": { "isWork": true, "start": "13:00", "end": "17:00" }
+      }
+    },
+    {
+      id: "t_1790859927339",
+      name: "Xadicha Ustoza",
+      phone: "+998 11 111 11 1",
+      login: "+998 11 111 11 1",
+      pin: "1111",
+      courses: ["Arab tili - Harf", "Arab tili - Qoida", "Arab tili - Amaliyot"],
+      startTime: "09:00",
+      endTime: "17:00",
+      daysOff: [6],
+      dailyHours: {
+        "0": { "isWork": true, "start": "09:00", "end": "17:00" },
+        "1": { "isWork": true, "start": "13:00", "end": "17:00" },
+        "2": { "isWork": true, "start": "09:00", "end": "17:00" },
+        "3": { "isWork": true, "start": "13:00", "end": "17:00" },
+        "4": { "isWork": true, "start": "09:00", "end": "17:00" },
+        "5": { "isWork": true, "start": "13:00", "end": "17:00" },
+        "6": { "isWork": false, "start": "09:00", "end": "17:00" }
+      }
+    }
   ],
   uchtepa: [
-    { id: "t_xadija",  name: "Xadija ustoz",   phone: "+998 92 022 87 40", pin: "2318", courses: ["Arab tili - Harf", "Arab tili - Qoida", "Arab tili - Amaliyot"], startTime: "09:00", endTime: "17:00", daysOff: [] },
-    { id: "t_abubakir",name: "Abubakir Ustoz", phone: "+998 90 033 51 02", pin: "0802", courses: ["Arab tili - Harf", "Arab tili - Qoida", "Arab tili - Amaliyot", "Arab tili grammatikasi", "Ingliz tili", "Nurli Bolajon"], startTime: "08:00", endTime: "18:00", daysOff: [] },
-    { id: "t1", name: "Fotima Ustoza",  phone: "+998 90 987 65 43", pin: "4821", courses: ["Arab tili - Harf", "Arab tili - Qoida", "Arab tili - Amaliyot", "Nurli Bolajon"], startTime: "08:00", endTime: "17:00", daysOff: [0] },
-    { id: "t2", name: "Mubina Ustoza",  phone: "+998 93 111 22 33", pin: "7193", courses: ["Arab tili - Harf", "Arab tili - Qoida", "Arab tili - Amaliyot", "Nurli Bolajon"], startTime: "09:00", endTime: "17:00", daysOff: [] },
-    { id: "t3", name: "Madina Ustoza",  phone: "+998 94 222 33 44", pin: "3305", courses: ["Arab tili - Harf", "Arab tili - Qoida", "Arab tili - Amaliyot"], startTime: "08:00", endTime: "12:00", daysOff: [0, 6] },
-    { id: "t4", name: "Samira ustoza",  phone: "+998 97 333 44 55", pin: "9244", courses: ["Arab tili - Harf", "Arab tili - Qoida", "Arab tili - Amaliyot"], startTime: "09:00", endTime: "17:00", daysOff: [4] },
-    { id: "t5", name: "Saida Ustoza",   phone: "+998 99 444 55 66", pin: "6182", courses: ["Arab tili - Harf", "Arab tili - Qoida", "Arab tili - Amaliyot"], startTime: "09:00", endTime: "12:00", daysOff: [4] },
-    { id: "t6", name: "Muslima Ustoza", phone: "+998 91 555 66 77", pin: "5519", courses: ["Arab tili grammatikasi"], startTime: "09:00", endTime: "17:00", daysOff: [0] },
-    { id: "t7", name: "Mohinur Ustoza", phone: "+998 98 666 77 88", pin: "8407", courses: ["Ingliz tili"], startTime: "09:00", endTime: "12:00", daysOff: [] }
+    {
+      id: "t_1790940388871",
+      name: "Sarvara",
+      login: "+998 90 123 45 67",
+      phone: "+998 90 123 45 67",
+      pin: "6288",
+      courses: ["Nurli Bolajon"],
+      startTime: "14:00",
+      endTime: "17:00",
+      daysOff: [6, 0],
+      dailyHours: {
+        "0": { "isWork": false, "start": "09:00", "end": "17:00" },
+        "1": { "isWork": true, "start": "14:00", "end": "17:00" },
+        "2": { "isWork": true, "start": "14:00", "end": "17:00" },
+        "3": { "isWork": true, "start": "14:00", "end": "17:00" },
+        "4": { "isWork": true, "start": "14:00", "end": "17:00" },
+        "5": { "isWork": true, "start": "14:00", "end": "17:00" },
+        "6": { "isWork": false, "start": "14:00", "end": "17:00" }
+      }
+    },
+    {
+      id: "t_1790940541826",
+      name: "Mahbuba U",
+      login: "+998 91 234 56 78",
+      phone: "+998 91 234 56 78",
+      pin: "2314",
+      courses: ["Arab tili grammatikasi", "Arab tili - Fonetika"],
+      startTime: "08:00",
+      endTime: "17:00",
+      daysOff: [],
+      dailyHours: {
+        "0": { "isWork": true, "start": "08:00", "end": "17:00" },
+        "1": { "isWork": true, "start": "09:00", "end": "17:00" },
+        "2": { "isWork": true, "start": "14:00", "end": "17:00" },
+        "3": { "isWork": true, "start": "14:00", "end": "17:00" },
+        "4": { "isWork": true, "start": "14:00", "end": "17:00" },
+        "5": { "isWork": true, "start": "14:00", "end": "17:00" },
+        "6": { "isWork": true, "start": "14:00", "end": "17:00" }
+      }
+    },
+    {
+      id: "t_1791121070983",
+      name: "Fotima U",
+      login: "+998 93 345 67 89",
+      phone: "+998 93 345 67 89",
+      pin: "9668",
+      courses: ["Arab tili - Fonetika"],
+      startTime: "08:00",
+      endTime: "12:00",
+      daysOff: [0],
+      dailyHours: {
+        "0": { "isWork": false, "start": "09:00", "end": "17:00" },
+        "1": { "isWork": true, "start": "08:00", "end": "12:00" },
+        "2": { "isWork": true, "start": "08:00", "end": "12:00" },
+        "3": { "isWork": true, "start": "08:00", "end": "12:00" },
+        "4": { "isWork": true, "start": "08:00", "end": "12:00" },
+        "5": { "isWork": true, "start": "08:00", "end": "12:00" },
+        "6": { "isWork": true, "start": "08:00", "end": "12:00" }
+      }
+    },
+    {
+      id: "t_1791121123092",
+      name: "Munira U",
+      login: "+998 94 456 78 90",
+      phone: "+998 94 456 78 90",
+      pin: "7415",
+      courses: ["Arab tili grammatikasi", "Arab tili - Fonetika"],
+      startTime: "08:00",
+      endTime: "17:00",
+      daysOff: [],
+      dailyHours: {
+        "0": { "isWork": true, "start": "08:00", "end": "17:00" },
+        "1": { "isWork": true, "start": "08:00", "end": "17:00" },
+        "2": { "isWork": true, "start": "14:00", "end": "17:00" },
+        "3": { "isWork": true, "start": "08:00", "end": "17:00" },
+        "4": { "isWork": true, "start": "14:00", "end": "17:00" },
+        "5": { "isWork": true, "start": "08:00", "end": "17:00" },
+        "6": { "isWork": true, "start": "14:00", "end": "17:00" }
+      }
+    },
+    {
+      id: "t_1791172129106",
+      name: "Mumtoza begim",
+      login: "+998 97 567 89 01",
+      phone: "+998 97 567 89 01",
+      pin: "8639",
+      courses: ["Ingliz tili"],
+      startTime: "14:00",
+      endTime: "17:00",
+      daysOff: [2, 4, 0],
+      dailyHours: {
+        "0": { "isWork": false, "start": "09:00", "end": "17:00" },
+        "1": { "isWork": true, "start": "14:00", "end": "17:00" },
+        "2": { "isWork": false, "start": "14:00", "end": "17:00" },
+        "3": { "isWork": true, "start": "14:00", "end": "17:00" },
+        "4": { "isWork": false, "start": "14:00", "end": "17:00" },
+        "5": { "isWork": true, "start": "14:00", "end": "17:00" },
+        "6": { "isWork": true, "start": "14:00", "end": "17:00" }
+      }
+    }
   ]
 };
 
@@ -165,11 +290,11 @@ export default async function handler(req, res) {
       const currentDeletedTeachers = DISTRICT_CACHE[district]?.deletedTeachers || [];
       const currentDeletedCourses  = DISTRICT_CACHE[district]?.deletedCourses  || [];
 
-      // Try fetching from Google Apps Script (with 18s timeout)
+      // Try fetching from Google Apps Script (with 25s timeout and redirect follow)
       try {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 18000);
-        const googleRes = await fetch(url, { signal: controller.signal });
+        const timeout = setTimeout(() => controller.abort(), 25000);
+        const googleRes = await fetch(url, { signal: controller.signal, redirect: 'follow' });
         clearTimeout(timeout);
         if (googleRes.ok) {
           const text = await googleRes.text();
@@ -416,12 +541,13 @@ export default async function handler(req, res) {
       try {
         const targetUrl = (configData.scriptUrl) || defaultScriptUrl;
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 20000);
+        const timeout = setTimeout(() => controller.abort(), 25000);
         const googleRes = await fetch(targetUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(gasPayload),
-          signal: controller.signal
+          signal: controller.signal,
+          redirect: 'follow'
         });
         clearTimeout(timeout);
         if (googleRes.ok) {

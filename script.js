@@ -581,6 +581,13 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch(e) {}
       }
 
+      // If network returned config, cache it locally for instant subsequent loads
+      if (cfg) {
+        try {
+          localStorage.setItem(`zn_admin_config_${districtKey}`, JSON.stringify(cfg));
+        } catch(e) {}
+      }
+
       // 3. Try LocalStorage fallback
       if (!cfg) {
         const saved = localStorage.getItem(`zn_admin_config_${districtKey}`) || localStorage.getItem('zn_admin_config');
