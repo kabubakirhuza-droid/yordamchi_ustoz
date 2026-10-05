@@ -642,8 +642,6 @@ class AdminDashboard {
       if (paramDistrict && (paramDistrict === 'sergeli' || paramDistrict === 'uchtepa')) {
         return paramDistrict;
       }
-      const saved = localStorage.getItem('zn_admin_district');
-      if (saved && (saved === 'sergeli' || saved === 'uchtepa')) return saved;
       const path = window.location.pathname.toLowerCase();
       if (path.includes('/uchtepa')) return 'uchtepa';
       if (path.includes('/sergeli')) return 'sergeli';

@@ -113,10 +113,10 @@ function buildSlots(startHour, startMin, endHour, endMin, stepMin){
 // Dynamic data loader from localStorage (Boshqaruv Markazi bilan real vaqtda sinxronlash)
 function loadDynamicConfig() {
   try {
-    const isSergeli = window.location.hostname.includes('ser') || window.location.pathname.includes('/sergeli');
-    const districtKey = isSergeli ? 'sergeli' : 'uchtepa';
-    const savedConfig = localStorage.getItem(`zn_admin_config_${districtKey}`) || localStorage.getItem('zn_admin_config');
-    const savedHolidays = localStorage.getItem(`zn_holidays_${districtKey}`) || localStorage.getItem('zn_holidays');
+    const isUchtepa = window.location.hostname.includes('uch') || window.location.hostname.includes('ut') || window.location.pathname.includes('/uchtepa');
+    const districtKey = isUchtepa ? 'uchtepa' : 'sergeli';
+    const savedConfig = localStorage.getItem(`zn_admin_config_${districtKey}`);
+    const savedHolidays = localStorage.getItem(`zn_holidays_${districtKey}`);
     
     let config = savedConfig ? JSON.parse(savedConfig) : null;
     let holidays = savedHolidays ? JSON.parse(savedHolidays) : null;
@@ -555,8 +555,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // JONLI AVTOMATIK SINXRONIZATSIYA (ADMIN PANELDAN SOZLAMALARNI OLISH)
   async function syncLiveConfig(){
     try {
-      const isSergeli = window.location.hostname.includes('ser') || window.location.pathname.includes('/sergeli');
-      const districtKey = isSergeli ? 'sergeli' : 'uchtepa';
+      const isUchtepa = window.location.hostname.includes('uch') || window.location.hostname.includes('ut') || window.location.pathname.includes('/uchtepa');
+      const districtKey = isUchtepa ? 'uchtepa' : 'sergeli';
       
       let cfg = null;
 
