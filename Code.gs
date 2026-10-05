@@ -831,21 +831,57 @@ function doGet(e){
       { id: "c6", name: "Nurli Bolajon", startTime: "13:00", endTime: "17:00", slotDuration: 30, capacity: 1, active: true }
     ];
 
-    let finalCourses = (cfg.courses && cfg.courses.length > 0) ? cfg.courses : defaultCourses;
+    // 1. Kurslarni birlashtirish (Baza + Code.gs dagi yangi kurslar)
+    let baseCourses = (cfg.courses && cfg.courses.length > 0) ? cfg.courses.slice() : defaultCourses.slice();
     const deletedCoursesList = cfg.deletedCourses || [];
-    if (Array.isArray(finalCourses) && deletedCoursesList.length > 0) {
-      const delSet = deletedCoursesList.map(function(s){ return String(s || '').trim().toLowerCase(); });
-      finalCourses = finalCourses.filter(function(c) {
-        const name = typeof c === 'string' ? c : (c.name || '');
-        const id = typeof c === 'object' && c.id ? String(c.id).toLowerCase() : '';
-        return delSet.indexOf(name.trim().toLowerCase()) === -1 && (id ? delSet.indexOf(id) === -1 : true);
+    const delSet = deletedCoursesList.map(function(s){ return String(s || '').trim().toLowerCase(); });
+
+    // Agar Code.gs da defaultCourses ga yangi kurs qo'shilgan bo'lsa va u bazada bo'lmasa, uni qo'shamiz
+    defaultCourses.forEach(function(dc) {
+      const dcName = (typeof dc === 'string' ? dc : (dc.name || '')).trim().toLowerCase();
+      if (!dcName || delSet.indexOf(dcName) !== -1) return;
+      const exists = baseCourses.some(function(bc) {
+        const bcName = (typeof bc === 'string' ? bc : (bc.name || '')).trim().toLowerCase();
+        return bcName === dcName;
       });
-    }
+      if (!exists) {
+        baseCourses.push(dc);
+      }
+    });
+
+    let finalCourses = baseCourses.filter(function(c) {
+      const name = typeof c === 'string' ? c : (c.name || '');
+      const id = typeof c === 'object' && c.id ? String(c.id).toLowerCase() : '';
+      return delSet.indexOf(name.trim().toLowerCase()) === -1 && (id ? delSet.indexOf(id) === -1 : true);
+    });
+
+    // 2. Ustozalarni birlashtirish (Baza + Code.gs dagi yangi ustozalar)
+    let baseTeachers = (cfg.teachers && cfg.teachers.length > 0) ? cfg.teachers.slice() : defaultTeachers.slice();
+    const deletedTeachersList = cfg.deletedTeachers || [];
+    const delTeacherSet = deletedTeachersList.map(function(s){ return String(s || '').trim().toLowerCase(); });
+
+    defaultTeachers.forEach(function(dt) {
+      const dtName = (dt && dt.name ? dt.name : '').trim().toLowerCase();
+      if (!dtName || delTeacherSet.indexOf(dtName) !== -1) return;
+      const exists = baseTeachers.some(function(bt) {
+        const btName = (bt && bt.name ? bt.name : '').trim().toLowerCase();
+        return btName === dtName;
+      });
+      if (!exists) {
+        baseTeachers.push(dt);
+      }
+    });
+
+    let finalTeachers = baseTeachers.filter(function(t) {
+      const name = (t && t.name ? t.name : '').trim().toLowerCase();
+      const id = (t && t.id ? String(t.id).toLowerCase() : '');
+      return delTeacherSet.indexOf(name) === -1 && (id ? delTeacherSet.indexOf(id) === -1 : true);
+    });
 
     return jsonOutput_({
       config: cfg,
       district: "sergeli",
-      teachers: (cfg.teachers && cfg.teachers.length > 0) ? cfg.teachers : defaultTeachers,
+      teachers: finalTeachers,
       courses: finalCourses,
       courseTeachers: cfg.courseTeachers || COURSE_TEACHERS_,
       teacherSchedule: cfg.teacherSchedule || defaultTeacherSchedule,
