@@ -555,6 +555,7 @@ export default async function handler(req, res) {
           if (text && (text.startsWith('{') || text.startsWith('['))) {
             const data = JSON.parse(text);
             return res.status(200).json({
+              status: 'ok',
               success: true,
               district,
               message: `${district.toUpperCase()} ma'lumotlari saqlandi!`,
@@ -573,6 +574,7 @@ export default async function handler(req, res) {
       }
 
       return res.status(200).json({
+        status: 'ok',
         success: true,
         district,
         message: `${district.toUpperCase()} ma'lumotlari saqlandi!`,
