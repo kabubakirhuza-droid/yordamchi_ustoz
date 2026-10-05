@@ -30,12 +30,12 @@ const COURSE_SLOTS = {
 
 // Standart ustoza biriktirmalari
 const COURSE_TEACHERS_ = {
-  "Arab tili - Harf": ["Fazilat Ustoza", "Feruza Ustoz", "Kamola Ustoza", "Nargiza Ustoza", "Risolat Ustoza"],
-  "Arab tili - Qoida": ["Fazilat Ustoza", "Feruza Ustoz", "Kamola Ustoza", "Nargiza Ustoza", "Risolat Ustoza"],
-  "Arab tili - Amaliyot": ["Fazilat Ustoza", "Feruza Ustoz", "Kamola Ustoza", "Nargiza Ustoza", "Risolat Ustoza"],
-  "Arab tili grammatikasi": ["Nargiza Ustoza"],
-  "Ingliz tili": ["Mohinur Ustoza"],
-  "Nurli Bolajon": ["Fazilat Ustoza", "Kamola Ustoza"]
+  "Arab tili - Harf": ["Feruza ustoza", "Xadicha Ustoza"],
+  "Arab tili - Qoida": ["Feruza ustoza", "Xadicha Ustoza"],
+  "Arab tili - Amaliyot": ["Feruza ustoza", "Xadicha Ustoza"],
+  "Arab tili grammatikasi": [],
+  "Ingliz tili": [],
+  "Nurli Bolajon": []
 };
 
 const TEACHER_COURSES_ = Object.keys(COURSE_TEACHERS_);
@@ -815,13 +815,13 @@ function doGet(e){
   if (action === 'get_config' || action === 'getConfig'){
     const cfg = getAppConfig_() || {};
     const defaultTeacherSchedule = {
-      "Fazilat Ustoza": { offDays: [4],    start: "09:00", end: "17:00" },
-      "Feruza Ustoz":   { offDays: [],     start: "13:00", end: "17:00" },
-      "Kamola Ustoza":  { offDays: [0, 6], start: "09:00", end: "17:00" },
-      "Mohinur Ustoza": { offDays: [],     start: "09:00", end: "12:00" },
-      "Nargiza Ustoza": { offDays: [0],    start: "09:00", end: "17:00" },
-      "Risolat Ustoza": { offDays: [0],    start: "09:00", end: "17:00" }
+      "Feruza ustoza":  { offDays: [0], start: "13:00", end: "17:00" },
+      "Xadicha Ustoza": { offDays: [6], start: "09:00", end: "17:00" }
     };
+    const defaultTeachers = [
+      { id: "t_1790852387410", name: "Feruza ustoza", login: "+998 99 999 99 99", phone: "+998 99 999 99 99", pin: "9999", courses: ["Arab tili - Harf", "Arab tili - Qoida", "Arab tili - Amaliyot"], startTime: "13:00", endTime: "17:00", daysOff: [0] },
+      { id: "t_1790859927339", name: "Xadicha Ustoza", login: "+998 11 111 11 1", phone: "+998 11 111 11 1", pin: "1111", courses: ["Arab tili - Harf", "Arab tili - Qoida", "Arab tili - Amaliyot"], startTime: "09:00", endTime: "17:00", daysOff: [6] }
+    ];
     const defaultCourses = [
       { id: "c1", name: "Arab tili - Harf", startTime: "09:00", endTime: "17:00", slotDuration: 30, capacity: 4, active: true },
       { id: "c2", name: "Arab tili - Qoida", startTime: "09:00", endTime: "17:00", slotDuration: 30, capacity: 4, active: true },
@@ -831,10 +831,22 @@ function doGet(e){
       { id: "c6", name: "Nurli Bolajon", startTime: "13:00", endTime: "17:00", slotDuration: 30, capacity: 1, active: true }
     ];
 
+    let finalCourses = (cfg.courses && cfg.courses.length > 0) ? cfg.courses : defaultCourses;
+    const deletedCoursesList = cfg.deletedCourses || [];
+    if (Array.isArray(finalCourses) && deletedCoursesList.length > 0) {
+      const delSet = deletedCoursesList.map(function(s){ return String(s || '').trim().toLowerCase(); });
+      finalCourses = finalCourses.filter(function(c) {
+        const name = typeof c === 'string' ? c : (c.name || '');
+        const id = typeof c === 'object' && c.id ? String(c.id).toLowerCase() : '';
+        return delSet.indexOf(name.trim().toLowerCase()) === -1 && (id ? delSet.indexOf(id) === -1 : true);
+      });
+    }
+
     return jsonOutput_({
       config: cfg,
-      teachers: cfg.teachers || [],
-      courses: cfg.courses || defaultCourses,
+      district: "sergeli",
+      teachers: (cfg.teachers && cfg.teachers.length > 0) ? cfg.teachers : defaultTeachers,
+      courses: finalCourses,
       courseTeachers: cfg.courseTeachers || COURSE_TEACHERS_,
       teacherSchedule: cfg.teacherSchedule || defaultTeacherSchedule,
       deletedTeachers: cfg.deletedTeachers || [],
