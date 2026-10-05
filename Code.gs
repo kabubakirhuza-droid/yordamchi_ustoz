@@ -431,14 +431,24 @@ function appendBookingToLogSheet_(b){
     sheet.setColumnWidth(11, 110);
   }
 
+  // Ustun formatini matn qilib qo'yish
+  sheet.getRange(1, 5, Math.max(sheet.getMaxRows(), 2), 1).setNumberFormat('@');
+
   const id = 'B-' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyMMddHHmmss') + '-' + Math.floor(Math.random() * 900 + 100);
   const nowStr = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd.MM.yyyy HH:mm:ss');
+
+  // Telefon raqami "+" bilan boshlansa, Google Sheets uni formula deb o'ylab #ERROR! bermasligi uchun apostrof qo'shish
+  let telStr = String(b.telefon || '').trim();
+  if (telStr.startsWith('+')) {
+    telStr = "'" + telStr;
+  }
+
   const row = [
     id,
     b.yuborilgan_vaqt || nowStr,
     b.ism,
     b.familiya,
-    b.telefon,
+    telStr,
     b.kurs,
     b.ustoza || '—',
     b.sana,
@@ -450,18 +460,54 @@ function appendBookingToLogSheet_(b){
   return id;
 }
 
+function repairRoyxatPhoneErrors_(){
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName('Royxat');
+  if (!sheet || sheet.getLastRow() <= 1) return 0;
+
+  const numRows = sheet.getLastRow() - 1;
+  const colRange = sheet.getRange(2, 5, numRows, 1);
+  colRange.setNumberFormat('@');
+  const formulas = colRange.getFormulas();
+  const values = colRange.getValues();
+  let fixedCount = 0;
+
+  for (let i = 0; i < numRows; i++){
+    let form = formulas[i][0];
+    let val = String(values[i][0] || '');
+
+    if (val === '#ERROR!' || (form && form.startsWith('+')) || (form && form.startsWith('=+'))) {
+      let clean = form || val;
+      if (clean.startsWith('=')) clean = clean.substring(1);
+      if (clean.startsWith('+')) clean = "'" + clean;
+      sheet.getRange(i + 2, 5).setValue(clean);
+      fixedCount++;
+    }
+  }
+  return fixedCount;
+}
+
 function getAllBookings_(){
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const logSheet = ss.getSheetByName('Royxat');
   const list = [];
 
+  // Mavjud #ERROR! telefonlarni avtomatik tuzatish
+  try { repairRoyxatPhoneErrors_(); } catch(e) {}
+
   // 1. Agar "Royxat" varag'i mavjud bo'lsa va unda arizalar bo'lsa:
   if (logSheet && logSheet.getLastRow() > 1){
     const numRows = logSheet.getLastRow() - 1;
     const data = logSheet.getRange(2, 1, numRows, 11).getValues();
+    const formulas = logSheet.getRange(2, 5, numRows, 1).getFormulas();
     for (let i = 0; i < data.length; i++){
       const r = data[i];
       if (!r[2] && !r[4]) continue;
+
+      let tel = String(r[4] || '');
+      if (tel === '#ERROR!' && formulas[i] && formulas[i][0]) {
+        tel = formulas[i][0].replace(/^=/, '');
+      }
       list.push({
         id: String(r[0] || ('B-' + (i + 1))),
         vaqt: String(r[1] || ''),
