@@ -587,6 +587,34 @@ function saveConfig_(data){
     Logger.log("Error creating course sheets: " + sheetErr);
   }
 
+  // 4. O'chirilgan kurslar varaqlarini (tablarini) Google Sheets dan butunlay o'chirish
+  try {
+    if (cfg && Array.isArray(cfg.deletedCourses) && cfg.deletedCourses.length > 0) {
+      const delCourses = cfg.deletedCourses.map(function(s){ return String(s || '').trim().toLowerCase(); }).filter(Boolean);
+      const allSheets = ss.getSheets();
+      for (let s = 0; s < allSheets.length; s++) {
+        const sh = allSheets[s];
+        const shName = sh.getName();
+        const cleanName = shName.trim().toLowerCase();
+        // Tizim varaqlarini saqlab qolish
+        if (cleanName === 'sozlamalar' || cleanName === 'royxat') continue;
+
+        for (let d = 0; d < delCourses.length; d++) {
+          const dName = delCourses[d];
+          if (!dName) continue;
+          if (cleanName === dName || cleanName.indexOf(dName) !== -1) {
+            if (ss.getSheets().length > 1) {
+              ss.deleteSheet(sh);
+            }
+            break;
+          }
+        }
+      }
+    }
+  } catch (delSheetErr) {
+    Logger.log("Error deleting course sheets: " + delSheetErr);
+  }
+
   SpreadsheetApp.flush();
 }
 

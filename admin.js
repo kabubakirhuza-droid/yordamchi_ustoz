@@ -1054,9 +1054,22 @@ class AdminDashboard {
 
     // Global Save
     if (this.btnSaveGlobal) {
-      this.btnSaveGlobal.addEventListener('click', () => {
-        this.saveData();
-        this.showToast(I18N[this.lang].msgSaved, 'success');
+      this.btnSaveGlobal.addEventListener('click', async () => {
+        const origContent = this.btnSaveGlobal.innerHTML;
+        try {
+          this.btnSaveGlobal.disabled = true;
+          this.btnSaveGlobal.innerHTML = `<span>Saqlanmoqda...</span>`;
+          this.saveData();
+          this.showToast("Google Sheets ga saqlanmoqda...", "info");
+          await this.syncToGoogleSheets(false);
+          this.showToast("Barcha o'zgarishlar Google Sheets ga saqlandi!", "success");
+        } catch (e) {
+          console.error(e);
+          this.showToast("Saqlashda xatolik yuz berdi!", "error");
+        } finally {
+          this.btnSaveGlobal.disabled = false;
+          this.btnSaveGlobal.innerHTML = origContent;
+        }
       });
     }
 
@@ -1710,12 +1723,12 @@ class AdminDashboard {
       const storageKey = `zn_admin_config_${this.district}`;
       localStorage.setItem(storageKey, JSON.stringify(this.data.config));
 
-      this.showToast("Google Sheets serveriga saqlanmoqda...", "info");
-      await this.syncToGoogleSheets(true);
+      this.showToast("Google Sheets ga saqlanmoqda...", "info");
+      await this.syncToGoogleSheets(false);
 
       this.closeAllModals();
       this.renderAll();
-      this.showToast(I18N[this.lang].msgTeacherAdded, 'success');
+      this.showToast(I18N[this.lang].msgTeacherAdded || "Ustoza muvaffaqiyatli saqlandi va Google Sheets ga yozildi!", 'success');
     } catch(err) {
       console.error("Teacher save error:", err);
       this.showToast("Xatolik yuz berdi!", "error");
@@ -1729,7 +1742,7 @@ class AdminDashboard {
   }
 
   deleteTeacher(id) {
-    this.openConfirmModal("Ustozani o'chirishni tasdiqlaysizmi?", "Bu amalni ortga qaytarib bo'lmaydi. Ustoza butunlay o'chiriladi.", async () => {
+    this.openConfirmModal("Ustozani o'chirishni tasdiqlaysizmi?", "Bu amalni ortga qaytarib bo'lmaydi. Ustoza butunlay o'chiriladi va Google Sheets dan tozalanadi.", async () => {
       const teacherToDelete = this.data.config.teachers.find(t => t.id === id);
       const name = teacherToDelete ? teacherToDelete.name : null;
       const cleanPhone = teacherToDelete ? cleanPhoneDigits(teacherToDelete.phone || teacherToDelete.login) : null;
@@ -1763,10 +1776,11 @@ class AdminDashboard {
 
       this.saveData();
       this.renderAll();
-      this.showToast(I18N[this.lang].msgDeleted, 'info');
+      this.showToast("Google Sheets dan o'chirilmoqda...", 'info');
 
       // 4. Immediately sync deletion to server so refresh never restores it!
-      await this.syncToGoogleSheets(true);
+      await this.syncToGoogleSheets(false);
+      this.showToast("Ustoza Google Sheets dan butunlay o'chirildi!", 'success');
     });
   }
 
@@ -1939,12 +1953,12 @@ class AdminDashboard {
       const storageKey = `zn_admin_config_${this.district}`;
       localStorage.setItem(storageKey, JSON.stringify(this.data.config));
 
-      this.showToast("Google Sheets serveriga saqlanmoqda...", "info");
-      await this.syncToGoogleSheets(true);
+      this.showToast("Google Sheets ga saqlanmoqda...", "info");
+      await this.syncToGoogleSheets(false);
 
       this.closeAllModals();
       this.renderAll();
-      this.showToast(I18N[this.lang].msgCourseAdded || "Kurs muvaffaqiyatli saqlandi!", 'success');
+      this.showToast(I18N[this.lang].msgCourseAdded || "Kurs muvaffaqiyatli qo'shildi va Google Sheets ga saqlandi!", 'success');
     } catch(err) {
       console.error("Save course error:", err);
       this.showToast("Xatolik yuz berdi!", "error");
@@ -1958,7 +1972,7 @@ class AdminDashboard {
   }
 
   deleteCourse(id) {
-    this.openConfirmModal("Kursni o'chirishni tasdiqlaysizmi?", "Ushbu kurs butunlay o'chiriladi.", async () => {
+    this.openConfirmModal("Kursni o'chirishni tasdiqlaysizmi?", "Ushbu kurs butunlay o'chiriladi va Google Sheets dan o'chiriladi.", async () => {
       const course = this.data.config.courses.find(c => c.id === id || c.name === id);
       const name = course ? course.name : null;
       if (!Array.isArray(this.data.config.deletedCourses)) this.data.config.deletedCourses = [];
@@ -1981,10 +1995,11 @@ class AdminDashboard {
       this.data.config.courses = this.data.config.courses.filter(c => c.id !== id && c.name !== id);
       this.saveData();
       this.renderAll();
-      this.showToast(I18N[this.lang].msgDeleted, 'info');
+      this.showToast("Google Sheets dan o'chirilmoqda...", 'info');
 
-      // Immediately sync deletion to server so refresh never restores it!
-      await this.syncToGoogleSheets(true);
+      // Immediately sync deletion to server so Google Sheets is updated
+      await this.syncToGoogleSheets(false);
+      this.showToast("Kurs Google Sheets dan o'chirildi!", 'success');
     });
   }
 
@@ -2601,9 +2616,15 @@ function doPost(e) {
       const newBtnAction = btnAction.cloneNode(true);
       btnAction.parentNode.replaceChild(newBtnAction, btnAction);
       
-      newBtnAction.addEventListener('click', () => {
-        if (typeof onConfirm === 'function') onConfirm();
+      newBtnAction.addEventListener('click', async () => {
         this.closeAllModals();
+        if (typeof onConfirm === 'function') {
+          try {
+            await onConfirm();
+          } catch(err) {
+            console.error("Confirm action error:", err);
+          }
+        }
       });
     }
 
