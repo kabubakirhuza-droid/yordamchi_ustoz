@@ -420,7 +420,10 @@ document.addEventListener('DOMContentLoaded', () => {
       errNetwork: "Xatolik yuz berdi. Internet aloqasini tekshirib, qaytadan urinib ko'ring.",
       errFull: "Bu vaqt allaqachon band qilingan. Iltimos boshqa vaqtni tanlang.",
       errTeacherTaken: "Bu ustoza shu vaqtga allaqachon band qilingan. Iltimos boshqa ustozani tanlang.",
-      errValidate: "Iltimos, barcha majburiy (*) maydonlarni to'g'ri to'ldiring."
+      errValidate: "Iltimos, barcha majburiy (*) maydonlarni to'g'ri to'ldiring.",
+      loadingSlots: "Bo'sh vaqtlar yuklanmoqda...",
+      loadingSubtext: "Iltimos kuting, jadval ma'lumotlari yangilanmoqda...",
+      loadingTeachers: "Ustozalar bandligi tekshirilmoqda..."
     },
     ru: {
       eyebrow: "Бесплатная консультация",
@@ -460,7 +463,10 @@ document.addEventListener('DOMContentLoaded', () => {
       errNetwork: "Произошла ошибка. Проверьте интернет-соединение и попробуйте снова.",
       errFull: "Это время уже занято. Пожалуйста, выберите другое время.",
       errTeacherTaken: "Этот преподаватель уже занят на это время. Пожалуйста, выберите другого преподавателя.",
-      errValidate: "Пожалуйста, корректно заполните все обязательные (*) поля."
+      errValidate: "Пожалуйста, корректно заполните все обязательные (*) поля.",
+      loadingSlots: "Загрузка свободного времени...",
+      loadingSubtext: "Пожалуйста, подождите, обновляется расписание...",
+      loadingTeachers: "Проверяется занятость преподавателей..."
     },
     en: {
       eyebrow: "Free consultation",
@@ -498,6 +504,9 @@ document.addEventListener('DOMContentLoaded', () => {
       modalBtn: "Got it",
       errGeneric: "Something went wrong. Please try again.",
       errNetwork: "Something went wrong. Check your connection and try again.",
+      loadingSlots: "Loading available times...",
+      loadingSubtext: "Please wait, updating schedule data...",
+      loadingTeachers: "Checking teacher availability...",
       errFull: "This time slot was just booked. Please choose another time.",
       errTeacherTaken: "This teacher was just booked for that time. Please choose another teacher.",
       errValidate: "Please correctly fill in all required (*) fields."
@@ -804,7 +813,17 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!selectedKurs) return;
     if (ttPlaceholder) ttPlaceholder.style.display = 'none';
     if (ttWrapper) ttWrapper.style.display = 'block';
-    if (ttGrid) ttGrid.innerHTML = `<div style="grid-column:1/-1;padding:24px;text-align:center;color:#8A9C93;font-size:0.85rem;">…</div>`;
+    if (ttGrid) {
+      ttGrid.style.gridTemplateColumns = '1fr';
+      ttGrid.style.minWidth = 'auto';
+      ttGrid.innerHTML = `
+        <div class="tt-loading-box">
+          <div class="tt-spinner"></div>
+          <div class="tt-loading-text">${t('loadingSlots')}</div>
+          <div class="tt-loading-subtext">${t('loadingSubtext')}</div>
+        </div>
+      `;
+    }
 
     const myRequestId = ++availabilityRequestId;
     const map = await fetchAvailability(selectedKurs);
@@ -1052,7 +1071,14 @@ document.addEventListener('DOMContentLoaded', () => {
     ustozaBlock.style.display = 'block';
 
     const myId = ++ustozaRequestId;
-    renderUstozaOptions();
+    if (ustozaOptions) {
+      ustozaOptions.innerHTML = `
+        <div class="ustoza-loading">
+          <div class="ustoza-spinner"></div>
+          <span>${t('loadingTeachers')}</span>
+        </div>
+      `;
+    }
 
     const dateVal = formatDateValue(selectedDate);
     const result = await fetchTeacherCounts(selectedKurs, dateVal, selectedTime);
