@@ -449,6 +449,34 @@ export default async function handler(req, res) {
 
     if (req.method === 'POST') {
       const bodyObj = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+
+      // 1. If this is a student registration or booking action, proxy directly to Google Apps Script!
+      if (bodyObj.action === 'register' || (bodyObj.ism && bodyObj.kurs && bodyObj.sana) || bodyObj.action === 'delete_booking' || bodyObj.action === 'update_status') {
+        const targetUrl = defaultScriptUrl;
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 25000);
+        try {
+          const googleRes = await fetch(targetUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(bodyObj),
+            signal: controller.signal,
+            redirect: 'follow'
+          });
+          clearTimeout(timeout);
+          const text = await googleRes.text();
+          try {
+            const parsed = JSON.parse(text);
+            return res.status(200).json(parsed);
+          } catch(e) {
+            return res.status(200).json({ success: true, message: text });
+          }
+        } catch(err) {
+          clearTimeout(timeout);
+          return res.status(500).json({ success: false, error: String(err) });
+        }
+      }
+
       const configData = bodyObj.config || bodyObj;
 
       // Extract deletedTeachers list
