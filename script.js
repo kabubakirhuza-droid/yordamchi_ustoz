@@ -805,7 +805,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return cleanMap;
     } catch (err) {
       console.warn("Jadval yuklashda xatolik:", err);
-      return {};
+      return null;
     }
   }
 
