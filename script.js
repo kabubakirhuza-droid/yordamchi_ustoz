@@ -783,7 +783,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function fetchAvailability(kurs){
-    const url = `${SCRIPT_URL}?action=availability&kurs=${encodeURIComponent(kurs)}`;
+    const url = `/api/sync?action=availability&kurs=${encodeURIComponent(kurs)}`;
     try {
       const res = await fetch(url, { method: 'GET' });
       if (!res.ok) throw new Error('bad response');
@@ -829,6 +829,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const map = await fetchAvailability(selectedKurs);
     if (myRequestId !== availabilityRequestId) return;
 
+    if (map === null) {
+      clearSlotSelection();
+      if (ttGrid) ttGrid.textContent = t('errNetwork');
+      return;
+    }
     availabilityMap = map;
     renderGrid();
   }
@@ -1043,7 +1048,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function fetchTeacherCounts(kurs, sana, vaqt){
     const defaultCap = (COURSES[kurs] && COURSES[kurs].capacity) || 4;
-    const url = `${SCRIPT_URL}?action=ustozalar&kurs=${encodeURIComponent(kurs)}&sana=${encodeURIComponent(sana)}&vaqt=${encodeURIComponent(vaqt)}`;
+    const url = `/api/sync?action=ustozalar&kurs=${encodeURIComponent(kurs)}&sana=${encodeURIComponent(sana)}&vaqt=${encodeURIComponent(vaqt)}`;
     try {
       const res = await fetch(url, { method: 'GET' });
       if (!res.ok) throw new Error('bad response');
@@ -1054,7 +1059,7 @@ document.addEventListener('DOMContentLoaded', () => {
       };
     } catch (err) {
       console.warn("O'qituvchilar yuklashda xatolik:", err);
-      return { counts: {}, capacity: defaultCap };
+      return null;
     }
   }
 
@@ -1084,6 +1089,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const result = await fetchTeacherCounts(selectedKurs, dateVal, selectedTime);
     if (myId !== ustozaRequestId) return;
 
+    if (!result) {
+      selectedUstoza = null;
+      if (ustozaHidden) ustozaHidden.value = '';
+      if (ustozaOptions) ustozaOptions.textContent = t('errNetwork');
+      return;
+    }
     teacherCounts = result.counts || {};
     teacherCapacity = (result.capacity && result.capacity > 0) ? result.capacity : ((COURSES[selectedKurs] && COURSES[selectedKurs].capacity) || 4);
     
@@ -1183,46 +1194,13 @@ document.addEventListener('DOMContentLoaded', () => {
     setLoading(true);
 
     try {
-      let sentSuccessfully = false;
-      let result = null;
-
-      // 1. Try Serverless Proxy API /api/sync
-      try {
-        const res = await fetch('/api/sync', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        if (res.ok) {
-          result = await res.json();
-          sentSuccessfully = true;
-        }
-      } catch (e) {}
-
-      // 2. Direct Sync to Google Script
-      if (!sentSuccessfully) {
-        try {
-          const res = await fetch(SCRIPT_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify(payload)
-          });
-          if (res.ok) {
-            try { result = await res.json(); } catch (err) {}
-            sentSuccessfully = true;
-          }
-        } catch (e) {
-          try {
-            await fetch(SCRIPT_URL, {
-              method: 'POST',
-              mode: 'no-cors',
-              headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-              body: JSON.stringify(payload)
-            });
-            sentSuccessfully = true;
-          } catch(err2) {}
-        }
-      }
+      const res = await fetch('/api/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || 'Server error');
 
       if (result && result.success === false){
         console.warn('Backend error: ' + JSON.stringify(result));
@@ -1242,11 +1220,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
 
+      if (result?.success !== true || !result.bookingId) {
+        throw new Error(result?.message || result?.error || 'Booking was not confirmed');
+      }
+
       // Always save booking locally so Admin & Teacher panels see it instantly
       try {
         const savedBookings = JSON.parse(localStorage.getItem('zn_bookings') || '[]');
         savedBookings.unshift({
-          id: "b_" + Date.now(),
+          id: result.bookingId,
           studentName: `${payload.ism} ${payload.familiya}`.trim(),
           phone: formatPhoneNumber(payload.telefon),
           courseName: payload.kurs,
@@ -1266,27 +1248,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     } catch (err) {
       console.error('Error submitting form:', err);
-      // Even on error, save locally and show success
-      try {
-        const savedBookings = JSON.parse(localStorage.getItem('zn_bookings') || '[]');
-        savedBookings.unshift({
-          id: "b_" + Date.now(),
-          studentName: `${payload.ism} ${payload.familiya}`.trim(),
-          phone: formatPhoneNumber(payload.telefon),
-          courseName: payload.kurs,
-          teacherName: payload.ustoza || 'Biriktirilmagan',
-          date: payload.sana,
-          time: payload.vaqt,
-          status: "Kutilmoqda",
-          createdAt: new Date().toISOString()
-        });
-        localStorage.setItem('zn_bookings', JSON.stringify(savedBookings));
-        form.reset();
-        clearSlotSelection();
-        openModal();
-      } catch(e) {
-        showToast(t('errNetwork'));
-      }
+      showInlineError(t('errNetwork'));
     } finally {
       setLoading(false);
     }

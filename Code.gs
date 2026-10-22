@@ -513,11 +513,11 @@ function getAllBookings_(){
         vaqt: String(r[1] || ''),
         ism: String(r[2] || ''),
         familiya: String(r[3] || ''),
-        telefon: String(r[4] || ''),
+        telefon: tel,
         kurs: String(r[5] || ''),
         ustoza: String(r[6] || '—'),
-        sana: String(r[7] || ''),
-        dars_vaqti: String(r[8] || ''),
+        sana: normalizeDateStr_(r[7]),
+        dars_vaqti: normalizeTimeStr_(r[8]),
         slot: String(r[9] || (r[7] + ' ' + r[8])),
         status: String(r[10] || 'Yangi')
       });
@@ -1103,4 +1103,42 @@ function doPost(e){
 
 function updateStatistikaCharts(){
   // Statistika grafiklarini yangilash uchun zaxira funksiya
+}
+
+/** Run once in the bound Apps Script editor to restore missing monthly cells.
+ * Keeps Royxat intact for admin history; never clears existing timetable cells.
+ */
+function restoreMonthlyTimetables() {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(15000);
+  try {
+    repairRoyxatPhoneErrors_();
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const log = ss.getSheetByName('Royxat');
+    if (!log || log.getLastRow() < 2) return { restored: 0 };
+    const rows = log.getRange(2, 1, log.getLastRow() - 1, 11).getValues();
+    let restored = 0;
+    rows.forEach(function(r) {
+      const kurs = String(r[5] || '').trim();
+      const sana = normalizeDateStr_(r[7]);
+      const vaqt = normalizeTimeStr_(r[8]);
+      const date = parseDateStr_(sana);
+      if (!kurs || !date || !vaqt || !r[2] || /bekor|cancel/i.test(String(r[10]))) return;
+      const sheet = getOrCreateCourseSheet_(kurs, monthKeyFromDateStr_(sana));
+      const timeRow = findTimeRow_(sheet, kurs, vaqt);
+      if (!timeRow) throw new Error('Unknown lesson time: ' + kurs + ' ' + vaqt);
+      const col = getOrCreateDateColumn_(sheet, sana, UZ_DAYS[date.getDay()]);
+      const cell = sheet.getRange(timeRow, col);
+      const teacher = String(r[6] || '').trim();
+      const line = String(r[2]) + ' ' + String(r[3] || '') + ' — ' + String(r[4] || '').replace(/^'/, '') + ' — ' + kurs + (teacher && teacher !== '—' ? ' — ' + teacher : '');
+      const entries = cellEntries_(cell.getValue());
+      if (entries.indexOf(line) === -1) {
+        entries.push(line);
+        cell.setValue(entries.join('\n')).setWrap(true).setVerticalAlignment('top');
+        restored++;
+      }
+    });
+    SpreadsheetApp.flush();
+    return { restored: restored };
+  } finally { lock.releaseLock(); }
 }

@@ -279,7 +279,7 @@ export default async function handler(req, res) {
   try {
     if (req.method === 'GET') {
       const { action, kurs, sana, vaqt, _t } = req.query;
-      const gasAction = district === 'sergeli' ? 'get_config' : (action || 'getConfig');
+      const gasAction = !action || action === 'getConfig' ? 'get_config' : action;
 
       let url = `${defaultScriptUrl}?action=${encodeURIComponent(gasAction)}`;
       if (kurs) url += `&kurs=${encodeURIComponent(kurs)}`;
@@ -300,6 +300,7 @@ export default async function handler(req, res) {
           const text = await googleRes.text();
           if (text && (text.startsWith('{') || text.startsWith('['))) {
             const data = JSON.parse(text);
+            if (gasAction !== 'get_config') return res.status(200).json(data);
             if (!data.error) {
               const remoteDelTeachers = Array.isArray(data.config?.deletedTeachers) ? data.config.deletedTeachers
                 : Array.isArray(data.deletedTeachers) ? data.deletedTeachers
@@ -392,6 +393,10 @@ export default async function handler(req, res) {
         // GAS unreachable — fall through to cache
       }
 
+      if (gasAction !== 'get_config') {
+        return res.status(502).json({ success: false, error: 'availability_unavailable' });
+      }
+
       // If GAS fails or times out: return from DISTRICT_CACHE or defaults
       const allDelTeachers = DISTRICT_CACHE[district]?.deletedTeachers || [];
       const allDelCourses  = DISTRICT_CACHE[district]?.deletedCourses  || [];
@@ -465,11 +470,13 @@ export default async function handler(req, res) {
           });
           clearTimeout(timeout);
           const text = await googleRes.text();
+          if (!googleRes.ok) return res.status(502).json({ success: false, error: 'upstream_http_error' });
           try {
             const parsed = JSON.parse(text);
+            if (typeof parsed?.success !== 'boolean') return res.status(502).json({ success: false, error: 'invalid_backend_response' });
             return res.status(200).json(parsed);
           } catch(e) {
-            return res.status(200).json({ success: true, message: text });
+            return res.status(502).json({ success: false, error: 'invalid_backend_response' });
           }
         } catch(err) {
           clearTimeout(timeout);
