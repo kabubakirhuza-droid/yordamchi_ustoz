@@ -562,7 +562,11 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // JONLI AVTOMATIK SINXRONIZATSIYA (ADMIN PANELDAN SOZLAMALARNI OLISH)
+  let configSyncInFlight = false;
+  let appliedConfigSignature = null;
   async function syncLiveConfig(){
+    if (configSyncInFlight || document.hidden) return;
+    configSyncInFlight = true;
     try {
       const isUchtepa = window.location.hostname.includes('uch') || window.location.hostname.includes('ut') || window.location.pathname.includes('/uchtepa');
       const districtKey = isUchtepa ? 'uchtepa' : 'sergeli';
@@ -571,7 +575,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // 1. Try Serverless API first (/api/sync)
       try {
-        const res = await fetch(`/api/sync?district=${districtKey}&action=getConfig`);
+        const res = await fetch(`/api/public-config?district=${districtKey}`, { signal: AbortSignal.timeout(7000) });
         if (res.ok) {
           const data = await res.json();
           if (data && (data.config || data.courses || data.teachers)) {
@@ -579,16 +583,6 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         }
       } catch(e) {}
-
-      // 2. Try Google Script URL fallback
-      if (!cfg) {
-        try {
-          const res = await fetch(`${SCRIPT_URL}?action=get_config`);
-          if (res.ok) {
-            cfg = await res.json();
-          }
-        } catch(e) {}
-      }
 
       // If network returned config, cache it locally for instant subsequent loads
       if (cfg) {
@@ -604,6 +598,9 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       if (!cfg) return;
+      const signature = JSON.stringify(cfg);
+      if (signature === appliedConfigSignature) return;
+      appliedConfigSignature = signature;
 
       // 1. Apply Teachers
       if (Array.isArray(cfg.teachers)) {
@@ -782,29 +779,39 @@ document.addEventListener('DOMContentLoaded', () => {
     return str;
   }
 
+  let availabilityController = null;
+  const availabilityCache = new Map();
   async function fetchAvailability(kurs){
-    const url = `/api/sync?action=availability&kurs=${encodeURIComponent(kurs)}`;
+    if (availabilityController) availabilityController.abort();
+    availabilityController = new AbortController();
+    const signal = AbortSignal.any([availabilityController.signal, AbortSignal.timeout(10000)]);
+    const months = [...new Set(weekDates().map(date => String(date.getMonth() + 1).padStart(2, '0') + '.' + date.getFullYear()))];
     try {
-      const res = await fetch(url, { method: 'GET' });
-      if (!res.ok) throw new Error('bad response');
-      const data = await res.json();
-      if (!data || typeof data !== 'object') return {};
-
+      const maps = await Promise.all(months.map(async month => {
+        const key = kurs + '|' + month;
+        const saved = availabilityCache.get(key);
+        if (saved && Date.now() - saved.time < 10000) return saved.value;
+        const url = '/api/sync?action=availability&kurs=' + encodeURIComponent(kurs) + '&oy=' + encodeURIComponent(month);
+        const res = await fetch(url, { signal });
+        if (!res.ok) throw new Error('Availability unavailable');
+        const data = await res.json();
+        if (!data || typeof data !== 'object' || data.error) throw new Error('Invalid availability');
+        availabilityCache.set(key, { time: Date.now(), value: data });
+        return data;
+      }));
       const cleanMap = {};
-      Object.keys(data).forEach((rawDate) => {
+      maps.forEach(data => Object.keys(data).forEach(rawDate => {
         const cleanDate = normalizeDateKey(rawDate);
         if (!cleanDate) return;
-        if (!cleanMap[cleanDate]) cleanMap[cleanDate] = {};
-        const timeObj = data[rawDate] || {};
-        Object.keys(timeObj).forEach((rawTime) => {
+        cleanMap[cleanDate] = {};
+        Object.keys(data[rawDate] || {}).forEach(rawTime => {
           const cleanTime = normalizeTimeKey(rawTime);
-          if (!cleanTime) return;
-          cleanMap[cleanDate][cleanTime] = (cleanMap[cleanDate][cleanTime] || 0) + (Number(timeObj[rawTime]) || 0);
+          if (cleanTime) cleanMap[cleanDate][cleanTime] = Number(data[rawDate][rawTime]) || 0;
         });
-      });
+      }));
       return cleanMap;
     } catch (err) {
-      console.warn("Jadval yuklashda xatolik:", err);
+      if (err.name !== 'AbortError') console.warn('Jadval yuklashda xatolik:', err);
       return null;
     }
   }
@@ -1050,7 +1057,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const defaultCap = (COURSES[kurs] && COURSES[kurs].capacity) || 4;
     const url = `/api/sync?action=ustozalar&kurs=${encodeURIComponent(kurs)}&sana=${encodeURIComponent(sana)}&vaqt=${encodeURIComponent(vaqt)}`;
     try {
-      const res = await fetch(url, { method: 'GET' });
+      const res = await fetch(url, { method: 'GET', signal: AbortSignal.timeout(10000) });
       if (!res.ok) throw new Error('bad response');
       const data = await res.json();
       return {
@@ -1167,6 +1174,7 @@ document.addEventListener('DOMContentLoaded', () => {
     submitBtn.disabled = isLoading;
   }
 
+  let pendingRegistration = null;
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     clearInlineError();
@@ -1191,6 +1199,11 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    const signature = JSON.stringify([payload.ism,payload.familiya,payload.telefon,payload.kurs,payload.sana,payload.vaqt,payload.ustoza]);
+    if (!pendingRegistration || pendingRegistration.signature !== signature) {
+      pendingRegistration = { signature, id: crypto.randomUUID() };
+    }
+    payload.requestId = pendingRegistration.id;
     setLoading(true);
 
     try {
@@ -1200,6 +1213,10 @@ document.addEventListener('DOMContentLoaded', () => {
         body: JSON.stringify(payload)
       });
       const result = await res.json();
+      if (result.error === 'rate_limited') {
+        const messages={uz:'Bir daqiqadan keyin qayta urinib ko‘ring.',ru:'Повторите попытку через минуту.',en:'Please try again in one minute.'};
+        showInlineError(messages[currentLang]||messages.uz);return;
+      }
       if (!res.ok) throw new Error(result.error || 'Server error');
 
       if (result && result.success === false){
@@ -1221,7 +1238,9 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       if (result?.success !== true || !result.bookingId) {
-        throw new Error(result?.message || result?.error || 'Booking was not confirmed');
+        const messages={uz:'Tanlangan sana, vaqt yoki ustoz mavjud emas. Jadvalni yangilab, qayta tanlang.',ru:'Выбранная дата, время или преподаватель недоступны. Обновите расписание и выберите снова.',en:'The selected date, time or teacher is unavailable. Refresh the schedule and choose again.'};
+        showInlineError(messages[currentLang]||messages.uz);
+        availabilityCache.clear();loadAvailabilityAndRender();return;
       }
 
       // Always save booking locally so Admin & Teacher panels see it instantly
@@ -1241,6 +1260,8 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem('zn_bookings', JSON.stringify(savedBookings));
       } catch(e) {}
 
+      pendingRegistration = null;
+      availabilityCache.clear();
       form.reset();
       clearSlotSelection();
       if (selectedKurs) loadAvailabilityAndRender();
@@ -1324,5 +1345,5 @@ document.addEventListener('DOMContentLoaded', () => {
   initLang();
   injectHolidayStyles();
   syncLiveConfig(); // Admin paneldagi oxirgi o'zgarishlarni yuklash
-  setInterval(syncLiveConfig, 25000); // Har 25 soniyada yangilanishlarni avtomatik tekshirish
+  setInterval(syncLiveConfig, 120000); // Refresh only visible pages; unchanged config does not redraw the form
 });

@@ -313,6 +313,7 @@ class TeacherApp {
     }
 
     this.refreshConfigFromSheets();
+    this._refreshTimer=setInterval(()=>{if(this.session?.token)this.refreshConfigFromSheets();},30000);
   }
 
   mergeConfigs(localCfg, remoteCfg) {
@@ -372,77 +373,35 @@ class TeacherApp {
   }
 
   populateQuickTeacherSelect() {
-    const select = document.getElementById('quickTeacherSelect');
-    if (!select) return;
-    select.innerHTML = `<option value="">-- ${this.lang === 'ru' ? 'Выберите преподавателя (автозаполнение)' : (this.lang === 'en' ? 'Select teacher (auto-fill)' : 'Ustozani tanlang (avtomatik to\'ldirish)')} --</option>`;
-    const teachers = Array.isArray(this.config?.teachers) ? this.config.teachers : [];
-    teachers.forEach(t => {
-      const opt = document.createElement('option');
-      opt.value = t.id;
-      const formattedPhone = formatPhoneNumber(t.phone || t.login);
-      opt.innerText = `${t.name} (${formattedPhone} / PIN: ${t.pin})`;
-      select.appendChild(opt);
-    });
-
-    select.onchange = () => {
-      const selectedId = select.value;
-      if (!selectedId) return;
-      const t = teachers.find(item => item.id === selectedId);
-      if (t) {
-        const loginInp = document.getElementById('loginUsername');
-        const pinInp = document.getElementById('loginPassword');
-        if (loginInp) loginInp.value = formatPhoneNumber(t.phone || t.login || t.name);
-        if (pinInp) pinInp.value = t.pin || '';
-        const errBox = document.getElementById('loginErrorMsg');
-        if (errBox) errBox.style.display = 'none';
-        if (loginInp) loginInp.classList.remove('input-error');
-        if (pinInp) pinInp.classList.remove('input-error');
-      }
-    };
+    const select=document.getElementById('quickTeacherSelect');if(select)select.style.display='none';
   }
 
   async refreshConfigFromSheets() {
-    try {
-      let remoteConfig = null;
-
-      // 1. Try /api/sync
-      try {
-        const res = await fetch('/api/sync?action=getConfig');
-        if (res.ok) {
-          const json = await res.json();
-          if (json && json.config && Array.isArray(json.config.teachers)) {
-            remoteConfig = json.config;
-          }
-        }
-      } catch(e) {}
-
-      // 2. Try Google Script directly
-      if (!remoteConfig) {
-        const scriptUrl = (this.config && this.config.scriptUrl) || DEFAULT_SCRIPT_URL;
-        const res2 = await fetch(`${scriptUrl}?action=getConfig`);
-        if (res2.ok) {
-          const text = await res2.text();
-          if (text && (text.startsWith('{') || text.startsWith('['))) {
-            const json = JSON.parse(text);
-            if (json && json.config && Array.isArray(json.config.teachers)) {
-              remoteConfig = json.config;
-            }
-          }
-        }
+    if(this._refreshing||document.hidden)return;this._refreshing=true;
+    const district=window.location.hostname.includes('support-ut')?'uchtepa':'sergeli';
+    try{
+      const signedIn=Boolean(this.session?.token);
+      const url=signedIn?'/api/teacher?district='+district:'/api/public-config?district='+district;
+      const response=await fetch(url,{headers:signedIn?{Authorization:'Bearer '+this.session.token}:{},signal:AbortSignal.timeout(15000)});
+      if(response.status===401){this.handleLogout();return;}
+      const result=await response.json();if(!response.ok||!result.config)throw new Error('Load failed');
+      this.config=result.config;
+      localStorage.setItem('zn_teacher_public_config',JSON.stringify(this.config));
+      if(signedIn){
+        this.bookings=Array.isArray(result.bookings)?result.bookings:[];
+        if(!this._teacherStateDirty){this.attendance=result.state?.attendance||{};this.notes=result.state?.notes||{};}
+        this.currentTeacher=this.config.teachers.find(t=>t.id===this.session.teacher.id)||this.session.teacher;
+        this.showDashboard();
       }
+    }catch{if(this.session?.token)this.showToast('Server bilan ulanishni tekshiring.','error');}
+    finally{this._refreshing=false;}
+  }
 
-      if (remoteConfig) {
-        this.config = this.mergeConfigs(this.config, remoteConfig);
-        localStorage.setItem('zn_admin_config', JSON.stringify(this.config));
-        this.populateQuickTeacherSelect();
-        if (this.session && !this.currentTeacher) {
-          this.currentTeacher = this.getTeacherBySession(this.session);
-          if (this.currentTeacher) this.showDashboard();
-        }
-      }
-    } catch (e) {
-      // Offline or local mode
-    }
+  async saveTeacherState() {
+    const district=window.location.hostname.includes('support-ut')?'uchtepa':'sergeli';
+    const response=await fetch('/api/teacher?district='+district,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+this.session?.token},body:JSON.stringify({action:'save_state',attendance:this.attendance,notes:this.notes}),signal:AbortSignal.timeout(15000)});
+    const result=await response.json();if(!response.ok||result.success!==true)throw new Error('State not saved');
+    this._teacherStateDirty=false;
   }
 
   loadSession() {
@@ -482,64 +441,11 @@ class TeacherApp {
   }
 
   loadAdminConfig() {
-    try {
-      const defaultTeachers = [
-        { id: "t_xadija", name: "Xadija ustoz", login: "+998 92 022 87 40", phone: "+998 92 022 87 40", pin: "2318", courses: ["Arab tili - Harf", "Arab tili - Qoida", "Arab tili - Amaliyot"], startTime: "09:00", endTime: "17:00", daysOff: [] },
-        { id: "t_abubakir", name: "Abubakir Ustoz", login: "+998 90 033 51 02", phone: "+998 90 033 51 02", pin: "0802", courses: ["Arab tili - Harf", "Arab tili - Qoida", "Arab tili - Amaliyot", "Arab tili grammatikasi", "Ingliz tili", "Nurli Bolajon"], startTime: "08:00", endTime: "18:00", daysOff: [] },
-        { id: "t1", name: "Fotima Ustoza", login: "+998 90 987 65 43", phone: "+998 90 987 65 43", pin: "4821", courses: ["Arab tili - Harf", "Arab tili - Qoida", "Arab tili - Amaliyot", "Nurli Bolajon"], startTime: "08:00", endTime: "17:00", daysOff: [0] },
-        { id: "t2", name: "Mubina Ustoza", login: "+998 93 111 22 33", phone: "+998 93 111 22 33", pin: "7193", courses: ["Arab tili - Harf", "Arab tili - Qoida", "Arab tili - Amaliyot", "Nurli Bolajon"], startTime: "09:00", endTime: "17:00", daysOff: [] },
-        { id: "t3", name: "Madina Ustoza", login: "+998 94 222 33 44", phone: "+998 94 222 33 44", pin: "3305", courses: ["Arab tili - Harf", "Arab tili - Qoida", "Arab tili - Amaliyot"], startTime: "08:00", endTime: "12:00", daysOff: [0, 6] },
-        { id: "t4", name: "Samira ustoza", login: "+998 97 333 44 55", phone: "+998 97 333 44 55", pin: "9244", courses: ["Arab tili - Harf", "Arab tili - Qoida", "Arab tili - Amaliyot"], startTime: "09:00", endTime: "17:00", daysOff: [4] },
-        { id: "t5", name: "Saida Ustoza", login: "+998 99 444 55 66", phone: "+998 99 444 55 66", pin: "6182", courses: ["Arab tili - Harf", "Arab tili - Qoida", "Arab tili - Amaliyot"], startTime: "09:00", endTime: "12:00", daysOff: [4] },
-        { id: "t6", name: "Muslima Ustoza", login: "+998 91 555 66 77", phone: "+998 91 555 66 77", pin: "5519", courses: ["Arab tili grammatikasi"], startTime: "09:00", endTime: "17:00", daysOff: [0] },
-        { id: "t7", name: "Mohinur Ustoza", login: "+998 98 666 77 88", phone: "+998 98 666 77 88", pin: "8407", courses: ["Ingliz tili"], startTime: "09:00", endTime: "12:00", daysOff: [] }
-      ];
-
-      const defaultCourses = [
-        { id: "c1", name: "Arab tili - Harf", startTime: "09:00", endTime: "17:00", slotDuration: 30, capacity: 4 },
-        { id: "c2", name: "Arab tili - Qoida", startTime: "09:00", endTime: "17:00", slotDuration: 30, capacity: 4 },
-        { id: "c3", name: "Arab tili - Amaliyot", startTime: "09:00", endTime: "17:00", slotDuration: 30, capacity: 4 },
-        { id: "c4", name: "Arab tili grammatikasi", startTime: "09:00", endTime: "17:00", slotDuration: 30, capacity: 4 },
-        { id: "c5", name: "Ingliz tili", startTime: "09:00", endTime: "12:00", slotDuration: 30, capacity: 1 },
-        { id: "c6", name: "Nurli Bolajon", startTime: "14:00", endTime: "16:00", slotDuration: 30, capacity: 1 }
-      ];
-
-      const saved = localStorage.getItem('zn_admin_config_uchtepa') || localStorage.getItem('zn_admin_config');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed && typeof parsed === 'object') {
-          if (!Array.isArray(parsed.deletedTeachers)) {
-            parsed.deletedTeachers = [];
-          }
-          if (Array.isArray(parsed.teachers)) {
-            // Filter out deleted teachers
-            parsed.teachers = parsed.teachers.filter(t => !this.isTeacherDeleted(t));
-          } else {
-            parsed.teachers = defaultTeachers.filter(t => !this.isTeacherDeleted(t));
-          }
-          if (!Array.isArray(parsed.courses) || parsed.courses.length === 0) {
-            parsed.courses = defaultCourses;
-          }
-          return parsed;
-        }
-      }
-      return {
-        teachers: defaultTeachers.filter(t => !this.isTeacherDeleted(t)),
-        courses: defaultCourses,
-        deletedTeachers: []
-      };
-    } catch(e) { return { teachers: [], courses: [], deletedTeachers: [] }; }
+    try{return JSON.parse(localStorage.getItem('zn_teacher_public_config')||'null')||{teachers:[],courses:[]};}
+    catch{return {teachers:[],courses:[]};}
   }
 
-  loadBookings() {
-    try {
-      const saved = localStorage.getItem('zn_bookings');
-      return saved ? JSON.parse(saved) : [
-        { id: "b1", studentName: "Malika Sharipova", phone: "+998 90 123 45 67", courseName: "Arab tili - Harf", teacherName: "Fotima Ustoza", date: this.getTodayDate(), time: "09:00", status: "Kutilmoqda" },
-        { id: "b2", studentName: "Dilnoza Alimova", phone: "+998 93 456 78 90", courseName: "Arab tili - Harf", teacherName: "Fotima Ustoza", date: this.getTodayDate(), time: "10:30", status: "Tasdiqlangan" }
-      ];
-    } catch(e) { return []; }
-  }
+  loadBookings() {return [];}
 
   loadAttendance() {
     try {
@@ -572,23 +478,7 @@ class TeacherApp {
     return `${dd}.${mm}.${d.getFullYear()}`;
   }
 
-  getTeacherBySession(session) {
-    if (!session) return null;
-    this.config = this.loadAdminConfig();
-    if (!this.config || !Array.isArray(this.config.teachers)) return null;
-    const found = this.config.teachers.find(t => 
-      (session.id && t.id === session.id) ||
-      (t.login && this.normalizePhoneOrLogin(t.login) === this.normalizePhoneOrLogin(session.login)) ||
-      (t.phone && this.normalizePhoneOrLogin(t.phone) === this.normalizePhoneOrLogin(session.login)) ||
-      (t.login && t.login.trim().toLowerCase() === (session.login || '').trim().toLowerCase()) ||
-      (t.name && t.name.trim().toLowerCase() === (session.name || '').trim().toLowerCase())
-    );
-    if (!found || this.isTeacherDeleted(found)) {
-      localStorage.removeItem('zn_teacher_session');
-      return null;
-    }
-    return found;
-  }
+  getTeacherBySession(session) {return session?.token&&session.teacher?session.teacher:null;}
 
   initElements() {
     this.loginScreen = document.getElementById('loginScreen');
@@ -811,138 +701,22 @@ class TeacherApp {
   }
 
   async handleLogin(e) {
-    if (e && e.preventDefault) e.preventDefault();
-    if (this._isLoggingIn) return;
-    this._isLoggingIn = true;
-
-    try {
-      this.config = this.loadAdminConfig();
-      const loginInput = document.getElementById('loginUsername');
-      const pinInput = document.getElementById('loginPassword');
-      const errBox = document.getElementById('loginErrorMsg');
-      const card = document.querySelector('.login-card');
-      const rawLogin = loginInput ? loginInput.value.trim() : '';
-      const pin = pinInput ? pinInput.value.trim() : '';
-
-      if (errBox) errBox.style.display = 'none';
-      if (loginInput) loginInput.classList.remove('input-error');
-      if (pinInput) pinInput.classList.remove('input-error');
-
-      if (!rawLogin || rawLogin === '+998' || rawLogin === '+998 ' || !pin) {
-        if (errBox) {
-          const msg = this.lang === 'ru' 
-            ? "Пожалуйста, введите номер телефона/логин и PIN-код!"
-            : (this.lang === 'en' ? "Please enter phone number/login and PIN code!" : "Iltimos, telefon raqami va PIN-kodni kiriting!");
-          errBox.innerHTML = `<div style="font-weight:700;">⚠️ ${msg}</div>`;
-          errBox.style.display = 'block';
-        }
-        if (card) {
-          card.classList.remove('shake-error');
-          void card.offsetWidth;
-          card.classList.add('shake-error');
-        }
-        if (!rawLogin || rawLogin === '+998' || rawLogin === '+998 ') loginInput?.classList.add('input-error');
-        if (!pin) pinInput?.classList.add('input-error');
-        this.showToast(this.lang === 'ru' ? "Заполните все поля!" : "Barcha maydonlarni to'ldiring!", "error");
-        return;
-      }
-      
-      const findTeacher = () => {
-        const configTeachers = Array.isArray(this.config.teachers) ? this.config.teachers : [];
-        const fallbackTeachers = [
-          { id: "t_xadija", name: "Xadija ustoz", login: "+998 92 022 87 40", phone: "+998 92 022 87 40", pin: "2318", courses: ["Arab tili - Harf", "Arab tili - Qoida", "Arab tili - Amaliyot"], startTime: "09:00", endTime: "17:00", daysOff: [] },
-          { id: "t_abubakir", name: "Abubakir Ustoz", login: "+998 90 033 51 02", phone: "+998 90 033 51 02", pin: "0802", courses: ["Arab tili - Harf", "Arab tili - Qoida", "Arab tili - Amaliyot", "Arab tili grammatikasi", "Ingliz tili", "Nurli Bolajon"], startTime: "08:00", endTime: "18:00", daysOff: [] }
-        ];
-        const allTeachers = [...configTeachers, ...fallbackTeachers].filter(t => !this.isTeacherDeleted(t));
-        return allTeachers.find(t => {
-          const pinOk = this.matchPin(t.pin, pin);
-          if (!pinOk) return false;
-          return this.matchPhoneOrLogin(t, rawLogin);
-        });
-      };
-
-      let teacher = findTeacher();
-
-      // If not found in local memory, try quick fetching latest config from Google Sheets / API
-      if (!teacher) {
-        try {
-          let remoteConfig = null;
-
-          // 1. Try serverless /api/sync
-          try {
-            const res = await fetch('/api/sync?action=getConfig');
-            if (res.ok) {
-              const json = await res.json();
-              if (json && json.config && Array.isArray(json.config.teachers)) {
-                remoteConfig = json.config;
-              }
-            }
-          } catch(e) {}
-
-          // 2. Try direct Google Script with timeout
-          if (!remoteConfig) {
-            const scriptUrl = (this.config && this.config.scriptUrl) || DEFAULT_SCRIPT_URL;
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 2500);
-            const res = await fetch(`${scriptUrl}?action=getConfig`, { signal: controller.signal });
-            clearTimeout(timeoutId);
-            if (res.ok) {
-              const text = await res.text();
-              if (text && (text.startsWith('{') || text.startsWith('['))) {
-                const json = JSON.parse(text);
-                if (json && json.config && Array.isArray(json.config.teachers)) {
-                  remoteConfig = json.config;
-                }
-              }
-            }
-          }
-
-          if (remoteConfig) {
-            this.config = this.mergeConfigs(this.config, remoteConfig);
-            localStorage.setItem('zn_admin_config', JSON.stringify(this.config));
-            this.populateQuickTeacherSelect();
-            teacher = findTeacher();
-          }
-        } catch (err) {
-          // Network error or timeout, proceed to local feedback
-        }
-      }
-      
-      if (teacher) {
-        if (errBox) errBox.style.display = 'none';
-        if (loginInput) loginInput.classList.remove('input-error');
-        if (pinInput) pinInput.classList.remove('input-error');
-        this.currentTeacher = teacher;
-        this.session = { id: teacher.id, login: teacher.login, phone: teacher.phone, name: teacher.name, pin: teacher.pin };
-        localStorage.setItem('zn_teacher_session', JSON.stringify(this.session));
-        this.showDashboard();
-        this.showToast(`${teacher.name}, Xush kelibsiz!`, 'success');
-      } else {
-        if (errBox) {
-          const errTitle = this.lang === 'ru'
-            ? "❌ Неправильный логин или пароль!"
-            : (this.lang === 'en' ? "❌ Incorrect phone number or PIN code!" : "❌ Telefon raqami yoki PIN-kod noto'g'ri!");
-          const errSub = this.lang === 'ru'
-            ? "Проверьте правильность введенного номера/логина и 4-значного PIN-кода."
-            : (this.lang === 'en' ? "Please verify your credentials and try again." : "Kiritilgan telefon raqami yoki PIN-kodni qaytadan tekshirib ko'ring.");
-          errBox.innerHTML = `
-            <div style="font-weight:700; margin-bottom:4px; font-size:0.95rem;">${errTitle}</div>
-            <div style="font-size:0.82rem; font-weight:normal; opacity:0.9;">${errSub}</div>
-          `;
-          errBox.style.display = 'block';
-        }
-        if (card) {
-          card.classList.remove('shake-error');
-          void card.offsetWidth;
-          card.classList.add('shake-error');
-        }
-        if (loginInput) loginInput.classList.add('input-error');
-        if (pinInput) pinInput.classList.add('input-error');
-        this.showToast(this.lang === 'ru' ? "Неправильный логин или пароль!" : "Telefon raqami yoki PIN-kod noto'g'ri!", 'error');
-      }
-    } finally {
-      this._isLoggingIn = false;
-    }
+    e?.preventDefault();if(this._isLoggingIn)return;this._isLoggingIn=true;
+    if(this.btnTeacherSubmit)this.btnTeacherSubmit.disabled=true;
+    try{
+      const district=window.location.hostname.includes('support-ut')?'uchtepa':'sergeli';
+      const login=document.getElementById('loginUsername')?.value.trim();
+      const pin=document.getElementById('loginPassword')?.value.trim();
+      const response=await fetch('/api/teacher?district='+district,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'login',login,pin}),signal:AbortSignal.timeout(15000)});
+      const result=await response.json();
+      if(!response.ok||!result.success)throw new Error(result.error==='rate_limited'?'Ko‘p urinish. Bir daqiqadan keyin qayta urinib ko‘ring.':'Telefon raqami yoki PIN-kod noto‘g‘ri.');
+      this.session={token:result.token,teacher:result.teacher};this.currentTeacher=result.teacher;
+      localStorage.setItem('zn_teacher_session',JSON.stringify(this.session));
+      if(this.loginErrorMsg)this.loginErrorMsg.style.display='none';
+      await this.refreshConfigFromSheets();this.showDashboard();
+      this.showToast(result.teacher.name+', xush kelibsiz!','success');
+    }catch(error){this.showToast(error.message||'Serverga ulanib bo‘lmadi.','error');}
+    finally{this._isLoggingIn=false;if(this.btnTeacherSubmit)this.btnTeacherSubmit.disabled=false;}
   }
 
   handleLogout() {
@@ -1113,6 +887,7 @@ class TeacherApp {
   }
 
   setStudentDavomat(bookingId, status, btn) {
+    this._teacherStateDirty=true;
     this.attendance[bookingId] = status;
     localStorage.setItem('zn_attendance', JSON.stringify(this.attendance));
     
@@ -1123,6 +898,7 @@ class TeacherApp {
 
   markAllPresentInModal() {
     if (!this.activeLesson) return;
+    this._teacherStateDirty=true;
     this.attendance[this.activeLesson.id] = 'Kelgan';
     localStorage.setItem('zn_attendance', JSON.stringify(this.attendance));
     
@@ -1132,10 +908,9 @@ class TeacherApp {
     this.showToast(T_I18N[this.lang].markAllPresent, 'info');
   }
 
-  saveDavomatFromModal() {
-    this.showToast(T_I18N[this.lang].msgDavomatSaved, 'success');
-    this.closeAllModals();
-    this.renderTeacherStats();
+  async saveDavomatFromModal() {
+    try{await this.saveTeacherState();this.showToast(T_I18N[this.lang].msgDavomatSaved,'success');this.closeAllModals();this.renderTeacherStats();}
+    catch{this.showToast('Davomat serverga saqlanmadi.','error');}
   }
 
   startLiveLesson() {
@@ -1160,7 +935,7 @@ class TeacherApp {
     this.showToast(T_I18N[this.lang].msgLessonStarted, 'info');
   }
 
-  endLiveLesson() {
+  async endLiveLesson() {
     if (this.timerInterval) clearInterval(this.timerInterval);
     const timerElem = document.getElementById('liveTimerDisplay');
     if (timerElem) {
@@ -1169,6 +944,11 @@ class TeacherApp {
     }
     
     if (this.activeLesson) {
+      try {
+        const district=window.location.hostname.includes('support-ut')?'uchtepa':'sergeli';
+        const response=await fetch('/api/teacher?district='+district,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+this.session?.token},body:JSON.stringify({action:'complete_lesson',id:this.activeLesson.id}),signal:AbortSignal.timeout(15000)});
+        const result=await response.json();if(!response.ok||!result.success)throw new Error('Not saved');
+      }catch{this.showToast('Dars holati serverga saqlanmadi.','error');return;}
       this.activeLesson.status = 'Yakunlangan';
       localStorage.setItem('zn_bookings', JSON.stringify(this.bookings));
     }
@@ -1280,9 +1060,10 @@ class TeacherApp {
     noteInput.value = this.notes[studentName] || '';
 
     const btnSaveNote = document.getElementById('btnSaveStudentNote');
-    btnSaveNote.onclick = () => {
+    btnSaveNote.onclick = async () => {
       this.notes[studentName] = noteInput.value.trim();
       localStorage.setItem('zn_student_notes', JSON.stringify(this.notes));
+      try { await this.saveTeacherState(); } catch { this.showToast('Izoh serverga saqlanmadi.','error'); return; }
       this.showToast(T_I18N[this.lang].msgNoteSaved, 'success');
       this.closeAllModals();
     };

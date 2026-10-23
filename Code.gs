@@ -81,7 +81,7 @@ function parseDateStr_(s){
   const year = Number(parts[2]);
   if (!day || !month || !year) return null;
   const d = new Date(year, month - 1, day);
-  return isNaN(d.getTime()) ? null : d;
+  return isNaN(d.getTime()) || d.getDate() !== day || d.getMonth() !== month - 1 || d.getFullYear() !== year ? null : d;
 }
 
 function cellEntries_(value){
@@ -226,17 +226,13 @@ function getEffectiveTeachers_(kurs){
 }
 
 function findMatchingSheet_(ss, kurs, monthKey){
-  const parts = monthKey.split('.');
-  const monthIdx = Number(parts[0]) - 1;
-  const year = parts[1];
-  const monthName = (UZ_MONTHS[monthIdx] || parts[0]).toLowerCase();
-  
-  const cleanKurs = kurs.trim().toLowerCase();
+  const expected = sheetNameFor_(kurs.trim(), monthKey).toLowerCase();
   const sheets = ss.getSheets();
   for (let i = 0; i < sheets.length; i++){
     const name = sheets[i].getName();
     const cleanName = name.trim().toLowerCase();
-    if (cleanName.includes(cleanKurs) && (cleanName.includes(monthName) || cleanName.includes(parts[0])) && cleanName.includes(year)){
+    const normalizedName = cleanName.replace(/\s*[—–-]\s*(?=[^—–-]+$)/, ' — ');
+    if (normalizedName === expected){
       return sheets[i];
     }
   }
@@ -303,11 +299,36 @@ function findTimeRow_(sheetOrKurs, kursOrVaqt, maybeVaqt){
     const lastRow = targetSheet.getLastRow();
     if (lastRow >= FIRST_TIME_ROW){
       const timeVals = targetSheet.getRange(FIRST_TIME_ROW, TIME_COL, lastRow - FIRST_TIME_ROW + 1, 1).getValues();
+      if (!timeVals[0][0] && timeVals.length>=3) {
+        const next=normalizeTimeStr_(timeVals[1][0]),after=normalizeTimeStr_(timeVals[2][0]);
+        if (/^\d{2}:\d{2}$/.test(next) && /^\d{2}:\d{2}$/.test(after)) {
+          const toMinutes=function(t){const p=t.split(':');return Number(p[0])*60+Number(p[1]);};
+          const inferred=2*toMinutes(next)-toMinutes(after);
+          if(inferred>=0 && toMinutes(after)>toMinutes(next)) {
+            timeVals[0][0]=Utilities.formatString('%02d:%02d',Math.floor(inferred/60),inferred%60);
+            targetSheet.getRange(FIRST_TIME_ROW,TIME_COL).setNumberFormat('@').setValue(timeVals[0][0]);
+          }
+        }
+      }
       for (let i = 0; i < timeVals.length; i++){
         if (normalizeTimeStr_(timeVals[i][0]) === cleanVaqt){
           return FIRST_TIME_ROW + i;
         }
       }
+      // A changed course start time must not reuse another time's occupied row.
+      const allowed = getEffectiveSlots_(kurs).map(normalizeTimeStr_);
+      if (allowed.indexOf(cleanVaqt) === -1) return null;
+      const minuteValue = function(t) { const p=t.split(':'); return Number(p[0])*60+Number(p[1]); };
+      const targetMinute = minuteValue(cleanVaqt);
+      let insertRow = lastRow + 1;
+      for (let i=0;i<timeVals.length;i++) {
+        const label=normalizeTimeStr_(timeVals[i][0]);
+        if (/^\d{2}:\d{2}$/.test(label) && minuteValue(label)>targetMinute) {insertRow=FIRST_TIME_ROW+i;break;}
+      }
+      if(insertRow>lastRow)targetSheet.insertRowsAfter(lastRow,1);
+      else targetSheet.insertRowBefore(insertRow);
+      targetSheet.getRange(insertRow,TIME_COL).setNumberFormat('@').setValue(cleanVaqt);
+      return insertRow;
     }
   }
 
@@ -434,7 +455,7 @@ function appendBookingToLogSheet_(b){
   // Ustun formatini matn qilib qo'yish
   sheet.getRange(1, 5, Math.max(sheet.getMaxRows(), 2), 1).setNumberFormat('@');
 
-  const id = 'B-' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyMMddHHmmss') + '-' + Math.floor(Math.random() * 900 + 100);
+  const id = b.bookingId || 'B-' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyMMddHHmmss') + '-' + Math.floor(Math.random() * 900 + 100);
   const nowStr = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd.MM.yyyy HH:mm:ss');
 
   // Telefon raqami "+" bilan boshlansa, Google Sheets uni formula deb o'ylab #ERROR! bermasligi uchun apostrof qo'shish
@@ -457,6 +478,10 @@ function appendBookingToLogSheet_(b){
     'Yangi'
   ];
   sheet.appendRow(row);
+  // Keep the technical history out of the visible course timetable tabs.
+  if (ss.getSheets().filter(function(s) { return !s.isSheetHidden(); }).length > 1) {
+    sheet.hideSheet();
+  }
   return id;
 }
 
@@ -547,7 +572,7 @@ function getAllBookings_(){
       if (!sanaStr) continue;
 
       for (let r = 0; r < timeSlots.length; r++){
-        const timeStr = String(timeSlots[r][0] || '').trim();
+        const timeStr = normalizeTimeStr_(timeSlots[r][0]);
         const cellVal = cells[r][c];
         if (!cellVal) continue;
 
@@ -633,33 +658,7 @@ function saveConfig_(data){
     Logger.log("Error creating course sheets: " + sheetErr);
   }
 
-  // 4. O'chirilgan kurslar varaqlarini (tablarini) Google Sheets dan butunlay o'chirish
-  try {
-    if (cfg && Array.isArray(cfg.deletedCourses) && cfg.deletedCourses.length > 0) {
-      const delCourses = cfg.deletedCourses.map(function(s){ return String(s || '').trim().toLowerCase(); }).filter(Boolean);
-      const allSheets = ss.getSheets();
-      for (let s = 0; s < allSheets.length; s++) {
-        const sh = allSheets[s];
-        const shName = sh.getName();
-        const cleanName = shName.trim().toLowerCase();
-        // Tizim varaqlarini saqlab qolish
-        if (cleanName === 'sozlamalar' || cleanName === 'royxat') continue;
-
-        for (let d = 0; d < delCourses.length; d++) {
-          const dName = delCourses[d];
-          if (!dName) continue;
-          if (cleanName === dName || cleanName.indexOf(dName) !== -1) {
-            if (ss.getSheets().length > 1) {
-              ss.deleteSheet(sh);
-            }
-            break;
-          }
-        }
-      }
-    }
-  } catch (delSheetErr) {
-    Logger.log("Error deleting course sheets: " + delSheetErr);
-  }
+  // Historical course tabs are retained when a course is disabled.
 
   SpreadsheetApp.flush();
 }
@@ -776,9 +775,10 @@ function deleteBooking_(id){
   const sheet = ss.getSheetByName('Royxat');
   if (!sheet || sheet.getLastRow() <= 1) return;
 
-  const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues();
+  const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 11).getValues();
   for (let i = 0; i < data.length; i++){
     if (String(data[i][0]) === String(id)){
+      if (!/bekor|cancel/i.test(String(data[i][10]))) removeLogBookingFromTimetable_(data[i]);
       sheet.deleteRow(i + 2);
       break;
     }
@@ -790,13 +790,29 @@ function updateBookingStatus_(id, status){
   const sheet = ss.getSheetByName('Royxat');
   if (!sheet || sheet.getLastRow() <= 1) return;
 
-  const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues();
+  const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 11).getValues();
   for (let i = 0; i < data.length; i++){
     if (String(data[i][0]) === String(id)){
+      if (/bekor|cancel/i.test(status) && !/bekor|cancel/i.test(String(data[i][10]))) removeLogBookingFromTimetable_(data[i]);
       sheet.getRange(i + 2, 11).setValue(status);
       break;
     }
   }
+}
+
+function removeLogBookingFromTimetable_(row) {
+  const ss=SpreadsheetApp.getActiveSpreadsheet(),date=normalizeDateStr_(row[7]),time=normalizeTimeStr_(row[8]);
+  const month=monthKeyFromDateStr_(date);if(!month)return;
+  const sheet=findMatchingSheet_(ss,String(row[5]),month);if(!sheet)return;
+  const timeRow=findTimeRow_(sheet,String(row[5]),time);if(!timeRow||sheet.getLastColumn()<2)return;
+  const dates=sheet.getRange(HEADER_DATE_ROW,2,1,sheet.getLastColumn()-1).getValues()[0];
+  const dateIndex=dates.map(normalizeDateStr_).indexOf(date);if(dateIndex<0)return;
+  const cell=sheet.getRange(timeRow,dateIndex+2),entries=cellEntries_(cell.getValue());
+  const prefix=String(row[2])+' '+String(row[3])+' — '+String(row[4]).replace(/^'/,'')+' — '+String(row[5]);
+  const index=entries.findIndex(function(line){return line===prefix || line.indexOf(prefix+' — ')===0;});
+  if(index>=0){entries.splice(index,1);cell.setValue(entries.join('\n'));}
+  const note=(cell.getNote()||'').split('\n').filter(function(line){return line!=='support:'+row[0];}).join('\n');
+  cell.setNote(note);
 }
 
 // -------------------------------------------------------------
@@ -819,8 +835,8 @@ function doGet(e){
       "Xadicha Ustoza": { offDays: [6], start: "09:00", end: "17:00" }
     };
     const defaultTeachers = [
-      { id: "t_1790852387410", name: "Feruza ustoza", login: "+998 99 999 99 99", phone: "+998 99 999 99 99", pin: "9999", courses: ["Arab tili - Harf", "Arab tili - Qoida", "Arab tili - Amaliyot"], startTime: "13:00", endTime: "17:00", daysOff: [0] },
-      { id: "t_1790859927339", name: "Xadicha Ustoza", login: "+998 11 111 11 1", phone: "+998 11 111 11 1", pin: "1111", courses: ["Arab tili - Harf", "Arab tili - Qoida", "Arab tili - Amaliyot"], startTime: "09:00", endTime: "17:00", daysOff: [6] }
+      { id: "t_1790852387410", name: "Feruza ustoza", login: "+998 99 999 99 99", phone: "+998 99 999 99 99", pin: '', courses: ["Arab tili - Harf", "Arab tili - Qoida", "Arab tili - Amaliyot"], startTime: "13:00", endTime: "17:00", daysOff: [0] },
+      { id: "t_1790859927339", name: "Xadicha Ustoza", login: "+998 11 111 11 1", phone: "+998 11 111 11 1", pin: '', courses: ["Arab tili - Harf", "Arab tili - Qoida", "Arab tili - Amaliyot"], startTime: "09:00", endTime: "17:00", daysOff: [6] }
     ];
     const defaultCourses = [
       { id: "c1", name: "Arab tili - Harf", startTime: "09:00", endTime: "17:00", slotDuration: 30, capacity: 4, active: true },
@@ -1026,14 +1042,23 @@ function doPost(e){
   }
 
   const monthKey = monthKeyFromDateStr_(sana);
-  if (!monthKey){
+  if (!monthKey || !parseDateStr_(sana)){
     return jsonOutput_({ success: false, error: 'invalid_date', sana: sana });
   }
 
+  const requestedId = String(data.bookingId || data.requestId || '').trim();
+  if (requestedId && !/^[A-Za-z0-9_-]{8,128}$/.test(requestedId)) return jsonOutput_({success:false,error:'invalid_request_id'});
   const lock = LockService.getScriptLock();
   lock.waitLock(15000);
 
   try {
+    if (requestedId) {
+      const history = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Royxat');
+      if (history && history.getLastRow() > 1) {
+        const ids = history.getRange(2,1,history.getLastRow()-1,1).getValues();
+        if (ids.some(function(row) { return String(row[0]) === requestedId; })) return jsonOutput_({success:true,bookingId:requestedId,duplicate:true});
+      }
+    }
     let dowLabel = data.kun || '';
     if (!dowLabel){
       const parts = sana.split('.');
@@ -1053,7 +1078,10 @@ function doPost(e){
     const cell = sheet.getRange(timeRow, dateCol);
 
     const existingEntries = cellEntries_(cell.getValue());
-
+    const marker = requestedId ? 'support:' + requestedId : '';
+    const oldNote = cell.getNote() || '';
+    const alreadyWritten = marker && oldNote.split('\n').indexOf(marker) !== -1;
+    if (!alreadyWritten) {
     if (ustoza){
       const teacherCount = existingEntries.filter(line => line.indexOf(ustoza) !== -1).length;
       if (teacherCount >= capacity){
@@ -1071,9 +1099,12 @@ function doPost(e){
     existingEntries.push(newLine);
     cell.setValue(existingEntries.join('\n'));
     cell.setWrap(true).setVerticalAlignment('top');
+    if (marker) cell.setNote(oldNote ? oldNote + '\n' + marker : marker);
+    }
 
     // Admin Panel uchun "Royxat" varag'iga ham qo'shib boramiz:
     const bookingId = appendBookingToLogSheet_({
+      bookingId: requestedId,
       yuborilgan_vaqt: data.yuborilgan_vaqt,
       ism: ism,
       familiya: familiya,
@@ -1087,7 +1118,9 @@ function doPost(e){
 
     SpreadsheetApp.flush();
 
-    try { updateStatistikaCharts(); } catch (chartErr) {}
+    // insertSheet('Royxat') can otherwise leave the history tab selected.
+    const ssForBooking = SpreadsheetApp.getActiveSpreadsheet();
+    ssForBooking.setActiveSheet(sheet);
 
     return jsonOutput_({ success: true, bookingId: bookingId });
   } catch (err){
@@ -1099,10 +1132,6 @@ function doPost(e){
   } finally {
     lock.releaseLock();
   }
-}
-
-function updateStatistikaCharts(){
-  // Statistika grafiklarini yangilash uchun zaxira funksiya
 }
 
 /** Run once in the bound Apps Script editor to restore missing monthly cells.
@@ -1141,4 +1170,48 @@ function restoreMonthlyTimetables() {
     SpreadsheetApp.flush();
     return { restored: restored };
   } finally { lock.releaseLock(); }
+}
+
+/** Create this month's separate course tabs without changing previous months. */
+function createCurrentMonthSheets() {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(15000);
+  try {
+    const cfg = getAppConfig_() || {};
+    const configured = cfg.courses;
+    const courses = Array.isArray(configured) ? configured
+      : configured && typeof configured === 'object'
+        ? Object.keys(configured).map(name => Object.assign({ name: name }, configured[name]))
+        : Object.keys(COURSE_SLOTS);
+    const deleted = (cfg.deletedCourses || []).map(name => String(name).trim().toLowerCase());
+    const monthKey = Utilities.formatDate(new Date(), 'Asia/Tashkent', 'MM.yyyy');
+    const names = [];
+    courses.forEach(function(course) {
+      if (!course || course.active === false) return;
+      const name = String(typeof course === 'string' ? course : course.name || '').trim();
+      if (!name || deleted.indexOf(name.toLowerCase()) !== -1) return;
+      const sheet = getOrCreateCourseSheet_(name, monthKey);
+      names.push(sheet.getName());
+    });
+    return names;
+  } finally { lock.releaseLock(); }
+}
+
+/** Run once manually in the bound Apps Script editor. */
+function setupMonthlySheets() {
+  const names = createCurrentMonthSheets();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const log = ss.getSheetByName('Royxat');
+  if (names.length && log && !log.isSheetHidden()) {
+    ss.setActiveSheet(ss.getSheetByName(names[0]));
+    log.hideSheet();
+  }
+  const exists = ScriptApp.getProjectTriggers().some(function(trigger) {
+    return trigger.getHandlerFunction() === 'createCurrentMonthSheets';
+  });
+  if (!exists) {
+    ScriptApp.newTrigger('createCurrentMonthSheets').timeBased()
+      .everyDays(1).atHour(0).inTimezone('Asia/Tashkent').create();
+  }
+  return names;
 }

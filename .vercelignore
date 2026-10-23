@@ -1,0 +1,6 @@
+tests/
+tools/
+supabase/
+GOOGLE_SHEETS_SETUP.md
+.env.local
+.env.*.local

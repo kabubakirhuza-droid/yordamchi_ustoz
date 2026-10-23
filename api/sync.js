@@ -1,5 +1,6 @@
 // Vercel Serverless Function: /api/sync
 import { verifyToken } from './auth.js';
+import { supportCall, supportEnabled, requestRateKey } from '../lib/support-gateway.js';
 
 const SCRIPT_URLS = {
   sergeli: "https://script.google.com/macros/s/AKfycbzk8hu77h_nGcUpnqe9aAPHtxX8LQrH4inmRkt1igiusHfcofkl0YeEniLsioYaBDc1/exec",
@@ -41,7 +42,7 @@ const DEFAULT_TEACHERS = {
       name: "Feruza ustoza",
       phone: "+998 99 999 99 99",
       login: "+998 99 999 99 99",
-      pin: "9999",
+      pin: '',
       courses: ["Arab tili - Harf", "Arab tili - Qoida", "Arab tili - Amaliyot"],
       startTime: "13:00",
       endTime: "17:00",
@@ -61,7 +62,7 @@ const DEFAULT_TEACHERS = {
       name: "Xadicha Ustoza",
       phone: "+998 11 111 11 1",
       login: "+998 11 111 11 1",
-      pin: "1111",
+      pin: '',
       courses: ["Arab tili - Harf", "Arab tili - Qoida", "Arab tili - Amaliyot"],
       startTime: "09:00",
       endTime: "17:00",
@@ -83,7 +84,7 @@ const DEFAULT_TEACHERS = {
       name: "Sarvara",
       login: "+998 90 123 45 67",
       phone: "+998 90 123 45 67",
-      pin: "6288",
+      pin: '',
       courses: ["Nurli Bolajon"],
       startTime: "14:00",
       endTime: "17:00",
@@ -103,7 +104,7 @@ const DEFAULT_TEACHERS = {
       name: "Mahbuba U",
       login: "+998 91 234 56 78",
       phone: "+998 91 234 56 78",
-      pin: "2314",
+      pin: '',
       courses: ["Arab tili grammatikasi", "Arab tili - Fonetika"],
       startTime: "08:00",
       endTime: "17:00",
@@ -123,7 +124,7 @@ const DEFAULT_TEACHERS = {
       name: "Fotima U",
       login: "+998 93 345 67 89",
       phone: "+998 93 345 67 89",
-      pin: "9668",
+      pin: '',
       courses: ["Arab tili - Fonetika"],
       startTime: "08:00",
       endTime: "12:00",
@@ -143,7 +144,7 @@ const DEFAULT_TEACHERS = {
       name: "Munira U",
       login: "+998 94 456 78 90",
       phone: "+998 94 456 78 90",
-      pin: "7415",
+      pin: '',
       courses: ["Arab tili grammatikasi", "Arab tili - Fonetika"],
       startTime: "08:00",
       endTime: "17:00",
@@ -163,7 +164,7 @@ const DEFAULT_TEACHERS = {
       name: "Mumtoza begim",
       login: "+998 97 567 89 01",
       phone: "+998 97 567 89 01",
-      pin: "8639",
+      pin: '',
       courses: ["Ingliz tili"],
       startTime: "14:00",
       endTime: "17:00",
@@ -263,6 +264,9 @@ export default async function handler(req, res) {
   }
 
   const district = getDistrict(req, 'sergeli');
+  const explicitDistrict = req.query?.district || req.headers['x-district'];
+  const districtToken = verifyToken((req.headers.authorization || '').replace(/^Bearer /,''));
+  if (districtToken && explicitDistrict && districtToken.district !== explicitDistrict) return res.status(403).json({success:false,error:'district_mismatch'});
   const defaultScriptUrl = SCRIPT_URLS[district] || SCRIPT_URLS.sergeli;
 
   const authHeader = req.headers.authorization || '';
@@ -277,14 +281,33 @@ export default async function handler(req, res) {
   }
 
   try {
+    if (supportEnabled()) {
+      res.setHeader('Cache-Control','no-store');
+      const action = req.method === 'GET' ? req.query.action || 'get_config'
+        : (typeof req.body === 'string' ? JSON.parse(req.body) : req.body || {}).action;
+      const payload = req.method === 'GET' ? req.query : typeof req.body === 'string' ? JSON.parse(req.body) : req.body || {};
+      const normalized = action === 'getConfig' ? 'get_config' : action === 'saveConfig' ? 'save_config' : action;
+      if ((req.method === 'GET' && !['get_config','get_bookings','availability','ustozalar'].includes(normalized))
+        || (req.method !== 'GET' && req.method !== 'POST')) return res.status(405).json({success:false,error:'method_not_allowed'});
+      const publicAction = ['availability','ustozalar','register'].includes(normalized);
+      const decoded = verifyToken((req.headers.authorization || '').replace(/^Bearer /,''));
+      if (!publicAction && (!decoded || decoded.role === 'teacher' || decoded.district !== district)) {
+        return res.status(401).json({success:false,error:'unauthorized'});
+      }
+      if (!['availability','ustozalar','register','get_config','get_bookings','save_config','delete_booking','update_status'].includes(normalized)) {
+        return res.status(400).json({success:false,error:'unknown_action'});
+      }
+      return res.status(200).json(await supportCall(normalized,district,payload,{rateKey:requestRateKey(req)}));
+    }
     if (req.method === 'GET') {
-      const { action, kurs, sana, vaqt, _t } = req.query;
+      const { action, kurs, sana, vaqt, oy, _t } = req.query;
       const gasAction = !action || action === 'getConfig' ? 'get_config' : action;
 
       let url = `${defaultScriptUrl}?action=${encodeURIComponent(gasAction)}`;
       if (kurs) url += `&kurs=${encodeURIComponent(kurs)}`;
       if (sana) url += `&sana=${encodeURIComponent(sana)}`;
       if (vaqt) url += `&vaqt=${encodeURIComponent(vaqt)}`;
+      if (oy) url += `&oy=${encodeURIComponent(oy)}`;
       if (_t)   url += `&_t=${encodeURIComponent(_t)}`;
 
       const currentDeletedTeachers = DISTRICT_CACHE[district]?.deletedTeachers || [];
@@ -625,6 +648,7 @@ export default async function handler(req, res) {
 
     return res.status(405).json({ error: "Method not allowed" });
   } catch (err) {
+    if (supportEnabled()) return res.status(err.status===429?429:503).json({success:false,error:err.status===429?'rate_limited':'server_unavailable'});
     if (DISTRICT_CACHE[district]) return res.status(200).json(DISTRICT_CACHE[district]);
     return res.status(500).json({ success: false, district, error: err.message });
   }

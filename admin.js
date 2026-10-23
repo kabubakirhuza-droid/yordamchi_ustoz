@@ -774,16 +774,16 @@ class AdminDashboard {
       ];
 
       const defaultTeachersUchtepa = [
-        { id: "t_1790940388871", name: "Sarvara", login: "+998 90 123 45 67", phone: "+998 90 123 45 67", pin: "6288", courses: ["Nurli Bolajon"], startTime: "14:00", endTime: "17:00", daysOff: [6, 0] },
-        { id: "t_1790940541826", name: "Mahbuba U", login: "+998 91 234 56 78", phone: "+998 91 234 56 78", pin: "2314", courses: ["Arab tili grammatikasi", "Arab tili - Fonetika"], startTime: "08:00", endTime: "17:00", daysOff: [] },
-        { id: "t_1791121070983", name: "Fotima U", login: "+998 93 345 67 89", phone: "+998 93 345 67 89", pin: "9668", courses: ["Arab tili - Fonetika"], startTime: "08:00", endTime: "12:00", daysOff: [0] },
-        { id: "t_1791121123092", name: "Munira U", login: "+998 94 456 78 90", phone: "+998 94 456 78 90", pin: "7415", courses: ["Arab tili grammatikasi", "Arab tili - Fonetika"], startTime: "08:00", endTime: "17:00", daysOff: [] },
-        { id: "t_1791172129106", name: "Mumtoza begim", login: "+998 97 567 89 01", phone: "+998 97 567 89 01", pin: "8639", courses: ["Ingliz tili"], startTime: "14:00", endTime: "17:00", daysOff: [2, 4, 0] }
+        { id: "t_1790940388871", name: "Sarvara", login: "+998 90 123 45 67", phone: "+998 90 123 45 67", pin: '', courses: ["Nurli Bolajon"], startTime: "14:00", endTime: "17:00", daysOff: [6, 0] },
+        { id: "t_1790940541826", name: "Mahbuba U", login: "+998 91 234 56 78", phone: "+998 91 234 56 78", pin: '', courses: ["Arab tili grammatikasi", "Arab tili - Fonetika"], startTime: "08:00", endTime: "17:00", daysOff: [] },
+        { id: "t_1791121070983", name: "Fotima U", login: "+998 93 345 67 89", phone: "+998 93 345 67 89", pin: '', courses: ["Arab tili - Fonetika"], startTime: "08:00", endTime: "12:00", daysOff: [0] },
+        { id: "t_1791121123092", name: "Munira U", login: "+998 94 456 78 90", phone: "+998 94 456 78 90", pin: '', courses: ["Arab tili grammatikasi", "Arab tili - Fonetika"], startTime: "08:00", endTime: "17:00", daysOff: [] },
+        { id: "t_1791172129106", name: "Mumtoza begim", login: "+998 97 567 89 01", phone: "+998 97 567 89 01", pin: '', courses: ["Ingliz tili"], startTime: "14:00", endTime: "17:00", daysOff: [2, 4, 0] }
       ];
 
       const defaultTeachersSergeli = [
-        { id: "t_1790852387410", name: "Feruza ustoza", login: "+998 99 999 99 99", phone: "+998 99 999 99 99", pin: "9999", courses: ["Arab tili - Harf", "Arab tili - Qoida", "Arab tili - Amaliyot"], startTime: "13:00", endTime: "17:00", daysOff: [0] },
-        { id: "t_1790859927339", name: "Xadicha Ustoza", login: "+998 11 111 11 1", phone: "+998 11 111 11 1", pin: "1111", courses: ["Arab tili - Harf", "Arab tili - Qoida", "Arab tili - Amaliyot"], startTime: "09:00", endTime: "17:00", daysOff: [6] }
+        { id: "t_1790852387410", name: "Feruza ustoza", login: "+998 99 999 99 99", phone: "+998 99 999 99 99", pin: '', courses: ["Arab tili - Harf", "Arab tili - Qoida", "Arab tili - Amaliyot"], startTime: "13:00", endTime: "17:00", daysOff: [0] },
+        { id: "t_1790859927339", name: "Xadicha Ustoza", login: "+998 11 111 11 1", phone: "+998 11 111 11 1", pin: '', courses: ["Arab tili - Harf", "Arab tili - Qoida", "Arab tili - Amaliyot"], startTime: "09:00", endTime: "17:00", daysOff: [6] }
       ];
 
       const defaultScriptUrl = this.district === 'sergeli'
@@ -863,10 +863,7 @@ class AdminDashboard {
       config.district = this.district;
       
       if (!Array.isArray(bookings)) {
-        bookings = [
-          { id: "b1", studentName: "Malika Sharipova", phone: "+998 90 123 45 67", courseId: "c1", courseName: "Arab tili - Harf", teacherId: "t1", teacherName: "Fotima Ustoza", date: "26.09.2026", time: "09:00", status: "Kutilmoqda", createdAt: "2026-09-25 14:20" },
-          { id: "b2", studentName: "Dilnoza Alimova", phone: "+998 93 456 78 90", courseId: "c5", courseName: "Ingliz tili", teacherId: "t7", teacherName: "Mohinur Ustoza", date: "26.09.2026", time: "10:30", status: "Tasdiqlangan", createdAt: "2026-09-25 15:10" }
-        ];
+        bookings = [];
       }
       
       if (!Array.isArray(holidays)) {
@@ -894,42 +891,20 @@ class AdminDashboard {
     this.autoSyncToSheets();
   }
 
-  async autoSyncToSheets() {
-    try {
-      const url = document.getElementById('googleScriptUrl')?.value.trim() || this.data.config.scriptUrl || DEFAULT_SCRIPT_URL;
-      const payload = {
-        action: "save_config",
-        district: this.district,
-        config: this.data.config,
-        bookings: this.data.bookings,
-        holidays: this.data.holidays
-      };
+  autoSyncToSheets() {
+    clearTimeout(this._autosaveTimer);
+    this._autosaveTimer=setTimeout(()=>{this._autosaveTimer=null;this.persistConfig().catch(()=>this.showToast('Sozlamalar serverga saqlanmadi. Qayta urinib ko‘ring.','error'));},600);
+  }
 
-      // 1. Sync via Serverless API with token and district
-      try {
-        fetch('/api/sync', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-district': this.district,
-            'Authorization': `Bearer ${this.token}`
-          },
-          body: JSON.stringify(payload)
-        }).catch(() => {});
-      } catch (e) {}
-
-      // 2. Direct Sync to Google Script
-      try {
-        fetch(url, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        }).catch(() => {});
-      } catch (e) {}
-    } catch(err) {
-      console.warn("Auto-sync background error", err);
-    }
+  async persistConfig() {
+    if(!this.token)throw new Error('Login required');
+    if(this._configSavePromise){await this._configSavePromise;return this.persistConfig();}
+    const payload={action:'save_config',config:{...this.data.config,holidayDates:this.data.holidays.map(h=>typeof h==='string'?h:h.date)}};
+    this._configSavePromise=(async()=>{
+      const response=await fetch('/api/sync',{method:'POST',headers:{'Content-Type':'application/json','x-district':this.district,Authorization:'Bearer '+this.token},body:JSON.stringify(payload),signal:AbortSignal.timeout(15000)});
+      const result=await response.json();if(!response.ok||result.success!==true)throw new Error('Save failed');return result;
+    })();
+    try{return await this._configSavePromise;}finally{this._configSavePromise=null;}
   }
 
   initElements() {
@@ -1257,6 +1232,7 @@ class AdminDashboard {
       const result = await res.json();
       if (res.ok && result.success) {
         this.isAuthenticated = true;
+        this.token = result.token;
         this.district = result.district || (login.includes('sergeli') ? 'sergeli' : 'uchtepa');
         this.currentRole = result.role || (this.district === 'sergeli' ? 'Sergeli Tumani Administratori' : 'Uchtepa Tumani Administratori');
         
@@ -1278,55 +1254,9 @@ class AdminDashboard {
         this.showToast(msg, 'error');
       }
     } catch (err) {
-      console.warn("Backend auth offline fallback check", err);
-      // Fallback hash verification for offline or direct mode
-      let passHash = '';
-      try {
-        const msgBuffer = new TextEncoder().encode(pass);
-        const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-        passHash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
-      } catch (e) {}
-
-      const HASH_SERGELI = '1d933f2d585458019316ca52ff7b1faa24ecd8cdc1840d19ffc9956646858ae0';
-      const HASH_UCHTEPA = '24b3b75cf0d61d4faaa94e7871cd9ab34e7c5e4fdf33c601faff214355a7da16';
-
-      const isSergeli = login.includes('sergeli');
-      const expectedHash = isSergeli ? HASH_SERGELI : HASH_UCHTEPA;
-      const passOk = (
-        passHash === expectedHash ||
-        pass === (isSergeli ? 'Sergeli#Zinnur2026' : 'Uchtepa#Zinnur2026') ||
-        pass === 'admin123' ||
-        pass === 'admin2026' ||
-        pass === 'admin' ||
-        pass === 'Zinnur2026' ||
-        pass === 'uchtepa2026'
-      );
-      const loginOk = (
-        login === (isSergeli ? 'zinnur-sergeli' : 'zinnur-uchtepa') ||
-        login === 'admin' ||
-        login === 'uchtepa' ||
-        login === 'sergeli' ||
-        login === 'zinnur'
-      );
-
-      if (loginOk && passOk) {
-        this.isAuthenticated = true;
-        this.district = isSergeli ? 'sergeli' : 'uchtepa';
-        this.currentRole = this.district === 'sergeli' ? 'Sergeli Tumani Administratori' : 'Uchtepa Tumani Administratori';
-        
-        localStorage.setItem('zn_admin_auth', 'true');
-        localStorage.setItem('zn_admin_district', this.district);
-        localStorage.setItem('zn_admin_role', this.currentRole);
-        this.data = this.loadInitialData();
-        this.showApp();
-        this.showToast(`Xush kelibsiz, ${this.currentRole}!`, 'success');
-      } else {
-        if (errBox) {
-          errBox.innerText = "Login yoki parol noto'g'ri!";
-          errBox.style.display = 'block';
-        }
-        this.showToast("Login yoki parol noto'g'ri!", 'error');
-      }
+      const message='Serverga ulanib bo‘lmadi. Qayta urinib ko‘ring.';
+      if(errBox){errBox.innerText=message;errBox.style.display='block';}
+      this.showToast(message,'error');
     } finally {
       if (submitBtn) {
         submitBtn.disabled = false;
@@ -2172,24 +2102,25 @@ class AdminDashboard {
     });
   }
 
-  updateBookingStatus(id, newStatus) {
-    const booking = this.data.bookings.find(b => b.id === id);
-    if (booking) {
-      booking.status = newStatus;
-      this.saveData();
-      this.renderBookingsTable();
-      this.renderScheduleTable();
-      this.showToast(`Status: ${newStatus}`, 'info');
-    }
+  async updateBookingStatus(id,newStatus) {
+    try{
+      const response=await fetch('/api/sync',{method:'POST',headers:{'Content-Type':'application/json','x-district':this.district,Authorization:'Bearer '+this.token},body:JSON.stringify({action:'update_status',id,status:newStatus}),signal:AbortSignal.timeout(15000)});
+      const result=await response.json();if(!response.ok||result.success!==true)throw new Error('Update failed');
+      const booking=this.data.bookings.find(b=>b.id===id);if(booking)booking.status=newStatus;
+      localStorage.setItem('zn_bookings_'+this.district,JSON.stringify(this.data.bookings));
+      this.renderBookingsTable();this.renderScheduleTable();this.showToast('Status: '+newStatus,'success');
+    }catch{this.showToast('Status serverga saqlanmadi.','error');}
   }
 
   deleteBooking(id) {
-    this.openConfirmModal("Arizani o'chirishni tasdiqlaysizmi?", "Ushbu ariza tizimdan o'chiriladi.", () => {
-      this.data.bookings = this.data.bookings.filter(b => b.id !== id);
-      this.saveData();
-      this.renderBookingsTable();
-      this.renderScheduleTable();
-      this.showToast(I18N[this.lang].msgDeleted, 'info');
+    this.openConfirmModal("Arizani o'chirishni tasdiqlaysizmi?","Ariza faol ro‘yxatdan chiqariladi.",async()=>{
+      try{
+        const response=await fetch('/api/sync',{method:'POST',headers:{'Content-Type':'application/json','x-district':this.district,Authorization:'Bearer '+this.token},body:JSON.stringify({action:'delete_booking',id}),signal:AbortSignal.timeout(15000)});
+        const result=await response.json();if(!response.ok||result.success!==true)throw new Error('Delete failed');
+        this.data.bookings=this.data.bookings.filter(b=>b.id!==id);
+        localStorage.setItem('zn_bookings_'+this.district,JSON.stringify(this.data.bookings));
+        this.renderBookingsTable();this.renderScheduleTable();this.showToast(I18N[this.lang].msgDeleted,'info');
+      }catch{this.showToast('Arizani serverdan o‘chirib bo‘lmadi.','error');}
     });
   }
 
@@ -2281,183 +2212,34 @@ class AdminDashboard {
   // ==========================================
   // GOOGLE SHEETS API INTEGRATION
   // ==========================================
-  async syncToGoogleSheets(isSilent = false) {
-    const url = document.getElementById('googleScriptUrl')?.value.trim() || this.data.config.scriptUrl || DEFAULT_SCRIPT_URL;
-    this.data.config.scriptUrl = url;
-    this.saveData();
-
-    if (!isSilent) this.showToast("Google Sheets ga saqlanmoqda...", "info");
-    try {
-      const payload = {
-        action: "save_config",
-        district: this.district,
-        config: this.data.config,
-        bookings: this.data.bookings,
-        holidays: this.data.holidays
-      };
-
-      // 1. Sync via Serverless API
-      let syncedData = null;
-      try {
-        const res = await fetch('/api/sync', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-district': this.district,
-            'Authorization': `Bearer ${this.token}`
-          },
-          body: JSON.stringify(payload)
-        });
-        if (res.ok) {
-          syncedData = await res.json();
-        }
-      } catch (e) {}
-
-      // 2. Direct Sync to Google Script
-      try {
-        fetch(url, {
-          method: "POST",
-          mode: "no-cors",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
-        }).catch(() => {});
-      } catch(e) {}
-
-      if (syncedData && (syncedData.courses || syncedData.teachers)) {
-        if (Array.isArray(syncedData.courses)) this.data.config.courses = syncedData.courses;
-        if (Array.isArray(syncedData.teachers)) this.data.config.teachers = syncedData.teachers;
-        if (syncedData.courseTeachers) this.data.config.courseTeachers = syncedData.courseTeachers;
-        if (syncedData.teacherSchedule) this.data.config.teacherSchedule = syncedData.teacherSchedule;
-        const storageKey = `zn_admin_config_${this.district}`;
-        localStorage.setItem(storageKey, JSON.stringify(this.data.config));
-        this.renderAll();
-      }
-
-      if (!isSilent) this.showToast(I18N[this.lang].msgSynced, "success");
-    } catch (e) {
-      console.error(e);
-      if (!isSilent) this.showToast("Sinxronlashda xatolik yuz berdi!", "error");
-    }
+  async syncToGoogleSheets(isSilent=false) {
+    this.saveData();clearTimeout(this._autosaveTimer);this._autosaveTimer=null;
+    try{await this.persistConfig();if(!isSilent)this.showToast(I18N[this.lang].msgSynced,'success');}
+    catch{if(!isSilent)this.showToast('Sinxronlashda xatolik yuz berdi!','error');}
   }
 
-  async fetchFromGoogleSheets(isSilent = false) {
-    const url = document.getElementById('googleScriptUrl')?.value.trim() || this.data.config.scriptUrl || DEFAULT_SCRIPT_URL;
-    if (!isSilent) this.showToast("Google Sheets dan yuklanmoqda...", "info");
-    try {
-      let json = null;
-
-      // 1. Try via Vercel /api/sync (avoids CORS issues)
-      try {
-        const apiRes = await fetch(`/api/sync?district=${this.district}&action=getConfig&_t=${Date.now()}`);
-        if (apiRes.ok) {
-          const apiData = await apiRes.json();
-          if (apiData && (apiData.config || apiData.teachers !== undefined || apiData.courses)) {
-            json = apiData;
-          }
-        }
-      } catch (e) {}
-
-      // 2. Direct GAS call as fallback
-      if (!json) {
-        try {
-          const res = await fetch(`${url}?action=getConfig&_t=${Date.now()}`);
-          if (res.ok) {
-            json = await res.json();
-          }
-        } catch (e) {}
-      }
-
-      if (json) {
-        let remoteCfg = {};
-        if (json.config && typeof json.config === 'object') {
-          remoteCfg = { ...json.config };
-        }
-
-        const remoteTeachers = Array.isArray(json.teachers) ? json.teachers
-          : Array.isArray(json.config?.teachers) ? json.config.teachers
-          : [];
-
-        let remoteCourses = json.courses || json.config?.courses || [];
-        if (remoteCourses && !Array.isArray(remoteCourses) && typeof remoteCourses === 'object') {
-          remoteCourses = Object.entries(remoteCourses).map(([name, cfg], i) => ({
-            id: `c${i+1}`,
-            name,
-            startTime: `${String(cfg.startHour||9).padStart(2,'0')}:${String(cfg.startMin||0).padStart(2,'0')}`,
-            endTime:   `${String(cfg.endHour||17).padStart(2,'0')}:${String(cfg.endMin||0).padStart(2,'0')}`,
-            slotDuration: cfg.stepMin || 30,
-            capacity: cfg.capacity || 4,
-            excludedDays: [],
-            active: true
-          }));
-        }
-
-        const remoteMerge = {
-          ...remoteCfg,
-          teachers: remoteTeachers,
-          deletedTeachers: json.deletedTeachers || remoteCfg.deletedTeachers || [],
-          deletedCourses: json.deletedCourses || remoteCfg.deletedCourses || [],
-          courses: Array.isArray(remoteCourses) && remoteCourses.length > 0 ? remoteCourses : null,
-          holidayDates: json.holidayDates || remoteCfg.holidayDates || [],
-          teacherSchedule: json.teacherSchedule || remoteCfg.teacherSchedule || {}
-        };
-
-        this.data.config = this.mergeConfigs(this.data.config, remoteMerge);
-
-        // Extra guarantee: filter out any teacher in deletedTeachers list
-        const delList = Array.isArray(this.data.config.deletedTeachers) ? this.data.config.deletedTeachers : [];
-        if (delList.length > 0 && Array.isArray(this.data.config.teachers)) {
-          this.data.config.teachers = this.data.config.teachers.filter(t => {
-            if (!t || !t.name) return false;
-            const id = String(t.id || '').trim().toLowerCase();
-            const nameKey = String(t.name || '').trim().toLowerCase();
-            const clean = cleanPhoneDigits(t.phone || t.login);
-            return !delList.includes(id) && !delList.includes(nameKey) && (!clean || !delList.includes(clean));
-          });
-        }
-
-        // Extra guarantee: filter out any course in deletedCourses list
-        const delCoursesList = Array.isArray(this.data.config.deletedCourses) ? this.data.config.deletedCourses : [];
-        if (delCoursesList.length > 0 && Array.isArray(this.data.config.courses)) {
-          this.data.config.courses = this.data.config.courses.filter(c => {
-            if (!c || !c.name) return false;
-            const id = String(c.id || '').trim().toLowerCase();
-            const nameKey = String(c.name || '').trim().toLowerCase();
-            return !delCoursesList.includes(id) && !delCoursesList.includes(nameKey);
-          });
-        }
-
-        this.rebuildCourseTeachersAndSchedule();
-
-        if (Array.isArray(json.bookings) && json.bookings.length > 0) {
-          const bMap = new Map();
-          json.bookings.forEach(b => { if (b && b.id) bMap.set(b.id, b); });
-          this.data.bookings.forEach(b => { if (b && b.id) bMap.set(b.id, b); });
-          this.data.bookings = Array.from(bMap.values());
-        }
-        if (Array.isArray(json.holidays) && json.holidays.length > 0) {
-          const hMap = new Map();
-          json.holidays.forEach(h => { if (h && (h.id || h.date)) hMap.set(h.id || h.date, h); });
-          this.data.holidays.forEach(h => { if (h && (h.id || h.date)) hMap.set(h.id || h.date, h); });
-          this.data.holidays = Array.from(hMap.values());
-        }
-
-        const storageKey = `zn_admin_config_${this.district}`;
-        localStorage.setItem(storageKey, JSON.stringify(this.data.config));
-        localStorage.setItem(`zn_bookings_${this.district}`, JSON.stringify(this.data.bookings));
-        localStorage.setItem(`zn_holidays_${this.district}`, JSON.stringify(this.data.holidays));
-        this.renderAll();
-        if (!isSilent) this.showToast(I18N[this.lang].msgFetched, "success");
-      } else {
-        if (!isSilent) this.showToast("Google Sheets dan ma'lumot olish imkonsiz bo'ldi.", "error");
-      }
-    } catch (e) {
-      console.warn("fetchFromGoogleSheets error, keeping local state", e);
-      if (!isSilent) this.showToast("Local ma'lumotlar faol ishlamoqda.", "info");
-    }
+  async fetchFromGoogleSheets(isSilent=false) {
+    if(!this.token||this._fetching||this._autosaveTimer||this._configSavePromise)return;
+    this._fetching=true;
+    try{
+      const response=await fetch('/api/sync?district='+this.district+'&action=getConfig',{headers:{Authorization:'Bearer '+this.token},signal:AbortSignal.timeout(15000)});
+      if(response.status===401)throw new Error('Session expired');
+      const result=await response.json();if(!response.ok||!result.config)throw new Error('Load failed');
+      this.data.config={...this.data.config,...result.config};
+      if(Array.isArray(result.bookings))this.data.bookings=result.bookings;
+      if(Array.isArray(result.holidays))this.data.holidays=result.holidays.map(h=>typeof h==='string'?{id:h,date:h,name:'Dam olish kuni'}:h);
+      this.rebuildCourseTeachersAndSchedule();
+      localStorage.setItem('zn_admin_config_'+this.district,JSON.stringify(this.data.config));
+      localStorage.setItem('zn_bookings_'+this.district,JSON.stringify(this.data.bookings));
+      localStorage.setItem('zn_holidays_'+this.district,JSON.stringify(this.data.holidays));
+      this.renderAll();if(!isSilent)this.showToast('Serverdan yangilandi','success');
+    }catch{if(!isSilent)this.showToast('Serverdan yuklab bo‘lmadi. Qayta kiring yoki qayta urinib ko‘ring.','error');}
+    finally{this._fetching=false;}
   }
-
 
   // ==========================================
+
+
   // BACKUP JSON EXPORT & IMPORT
   // ==========================================
   downloadBackupJson() {
@@ -2524,71 +2306,20 @@ class AdminDashboard {
     }
   }
 
-  updateCodeGenerator() {
-    const scriptJsElem = document.getElementById('generatedScriptJs');
-    const codeGsElem = document.getElementById('generatedCodeGs');
-    
-    if (!scriptJsElem || !codeGsElem) return;
-
-    const holidayDatesArr = this.data.holidays.map(h => h.date);
-
-    const generatedScript = `// ==========================================================================
-// ZIN-NUR AKADEMIYASI - AUTO-GENERATED CONFIG (script.js)
-// SANA: ${new Date().toLocaleString()}
-// ==========================================================================
-
-const SCRIPT_URL = "${this.data.config.scriptUrl || DEFAULT_SCRIPT_URL}";
-
-const HOLIDAY_DATES = ${JSON.stringify(holidayDatesArr, null, 2)};
-
-const COURSE_TEACHERS = ${JSON.stringify(
-      this.data.config.courses.reduce((acc, c) => {
-        acc[c.name] = this.data.config.teachers.filter(t => t.courses && t.courses.includes(c.name)).map(t => t.name);
-        return acc;
-      }, {}), null, 2
-    )};
-
-const TEACHER_SCHEDULE = ${JSON.stringify(
-      this.data.config.teachers.reduce((acc, t) => {
-        acc[t.name] = { offDays: t.daysOff, start: t.startTime, end: t.endTime };
-        return acc;
-      }, {}), null, 2
-    )};
-`;
-
-    const generatedGs = `// ==========================================================================
-// GOOGLE APPS SCRIPT (Code.gs) - AUTO BACKEND HANDLER
-// ==========================================================================
-
-function doGet(e) {
-  var action = e.parameter.action;
-  if (action === "getConfig") {
-    var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Config");
-    var data = sheet ? sheet.getRange("A1").getValue() : "{}";
-    return ContentService.createTextOutput(data).setMimeType(ContentService.MimeType.JSON);
-  }
-  return ContentService.createTextOutput(JSON.stringify({ status: "ok" })).setMimeType(ContentService.MimeType.JSON);
-}
-
-function doPost(e) {
-  try {
-    var raw = e.postData.contents;
-    var data = JSON.parse(raw);
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
-    var sheet = ss.getSheetByName("Config") || ss.insertSheet("Config");
-    sheet.getRange("A1").setValue(JSON.stringify(data));
-    return ContentService.createTextOutput(JSON.stringify({ status: "success" })).setMimeType(ContentService.MimeType.JSON);
-  } catch (err) {
-    return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.toString() })).setMimeType(ContentService.MimeType.JSON);
-  }
-}
-`;
-
-    scriptJsElem.innerText = generatedScript;
-    codeGsElem.innerText = generatedGs;
+  async updateCodeGenerator() {
+    const script=document.getElementById('generatedScriptJs'),backend=document.getElementById('generatedCodeGs');
+    if(!script||!backend)return;
+    if(!this._codePromise)this._codePromise=Promise.all(['/script.js','/Code.gs'].map(async url=>{
+      const response=await fetch(url,{signal:AbortSignal.timeout(10000)});
+      if(!response.ok)throw new Error('Code unavailable');const text=await response.text();
+      if(text.trim().startsWith('<'))throw new Error('Invalid code response');return text;
+    }));
+    try{const [front,gas]=await this._codePromise;script.innerText=front;backend.innerText=gas;this._codeReady=true;}
+    catch{this._codePromise=null;this._codeReady=false;script.innerText='Kodni yuklab bo‘lmadi.';backend.innerText='Kodni yuklab bo‘lmadi.';}
   }
 
   copyGeneratedCode() {
+    if(!this._codeReady){this.showToast('Kod hali yuklanmagan. Qayta urinib ko‘ring.','error');return;}
     const codeElem = this.activeCodeTab === 'script' 
       ? document.getElementById('generatedScriptJs') 
       : document.getElementById('generatedCodeGs');

@@ -3,6 +3,7 @@ const vm = require('node:vm');
 const assert = require('node:assert/strict');
 const source = readFileSync('api/sync.js', 'utf8')
   .replace("import { verifyToken } from './auth.js';", 'const verifyToken = () => null;')
+  .replace("import { supportCall, supportEnabled, requestRateKey } from '../lib/support-gateway.js';", 'const supportEnabled = () => false;')
   .replace('export default async function handler', 'async function handler');
 async function request(method, action, upstream) {
   let calledUrl;
