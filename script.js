@@ -265,6 +265,11 @@ function timeToMinutes(str){
   return h * 60 + m;
 }
 
+function timetableCapacity(course, date, time) {
+  const teachers = COURSE_TEACHERS[course] || [];
+  return teachers.length ? teachers.filter(name => isTeacherScheduled(name,date,time)).length : COURSES[course].capacity;
+}
+
 function isTeacherScheduled(name, date, time){
   const schedule = TEACHER_SCHEDULE[name];
   if (!schedule) return true;
@@ -861,7 +866,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function renderGrid(){
     if (!selectedKurs || !COURSES[selectedKurs] || !ttGrid) return;
-    const { slots, capacity } = COURSES[selectedKurs];
+    const { slots } = COURSES[selectedKurs];
     const fullWeek = weekDates();
     const excludedDays = COURSE_EXCLUDED_DAYS[selectedKurs] || [];
     const dates = fullWeek.filter((d) => excludedDays.indexOf(d.getDay()) === -1);
@@ -899,6 +904,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const dateVal = formatDateValue(d);
         const isHoliday = isHolidayDate(d);
         const booked = (availabilityMap[dateVal] && availabilityMap[dateVal][time]) || 0;
+        const capacity = timetableCapacity(selectedKurs,d,time);
         const remaining = capacity - booked;
         const isFull = !isHoliday && remaining <= 0;
         const isPartial = !isHoliday && !isFull && remaining < capacity && capacity > 1;
@@ -972,13 +978,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (weekPrev) {
     weekPrev.addEventListener('click', () => {
-      if (weekOffset > 0){ weekOffset -= 1; renderGrid(); }
+      if (weekOffset > 0){ weekOffset -= 1; loadAvailabilityAndRender(); }
     });
   }
   if (weekNext) {
     weekNext.addEventListener('click', () => {
       weekOffset += 1;
-      renderGrid();
+      loadAvailabilityAndRender();
     });
   }
 

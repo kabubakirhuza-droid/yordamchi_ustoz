@@ -63,6 +63,15 @@ function getCourse(config, name) {
   return Array.isArray(config.courses) ? config.courses.find(c => c.name === name && c.active !== false)
     : config.courses?.[name];
 }
+function teacherWorksAt(teacher, day, time) {
+  const daily = teacher.dailyHours?.[day];
+  if (daily?.isWork === false || (!daily && (teacher.daysOff || []).includes(day))) return false;
+  return time >= (daily?.start || teacher.startTime || '00:00') && time <= (daily?.end || teacher.endTime || '23:59');
+}
+function fullTeacherCount(teachers, counts, capacity, date, time) {
+  const day = parseDate(date)?.day;
+  return teachers.filter(t => teacherWorksAt(t,day,time) && (counts[t.name] || 0) >= capacity).length;
+}
 async function register(district, payload, config) {
   for (const key of ['ism','familiya','telefon','kurs','sana','vaqt','requestId']) {
     if (typeof payload[key] !== 'string' || !payload[key].trim() || payload[key].length > 200) return { success: false, error: 'missing_fields' };
@@ -179,8 +188,9 @@ Deno.serve(async req => {
       const courseConfig = getCourse(config,course);
       if (!courseConfig) return Response.json({success:false,error:'unknown_course'},{status:400});
       const capacity = Number(courseConfig.capacity) || 4;
-      const rows = (await bookings(district,null,course)).filter(r => !['Bekor qilingan','cancelled'].includes(r.status));
-      const teachers = (config.teachers || []).filter(t => (t.courses || []).includes(course));
+      const teachers = (config.teachers || []).filter(t => (t.courses || []).includes(course) && !config.deletedTeachers?.includes(t.id) && !config.deletedTeachers?.includes(t.name));
+      const teacherNames = new Set(teachers.map(t=>t.name));
+      const rows = (await bookings(district,null,teachers.length ? null : course)).filter(r => !['Bekor qilingan','cancelled'].includes(r.status) && (!teachers.length || teacherNames.has(r.teacher)));
       if (action === 'ustozalar') {
         const date = parseDate(body.payload.sana);
         if(!date||!/^\d{2}:\d{2}$/.test(String(body.payload.vaqt||'')))return Response.json({success:false,error:'invalid_date'},{status:400});
@@ -199,7 +209,7 @@ Deno.serve(async req => {
         }
         for (const slot of Object.values(bySlot)) {
           if(!map[slot.date])map[slot.date]={};
-          map[slot.date][slot.time]=teachers.length?teachers.filter(t=>(slot.counts[t.name]||0)>=capacity).length:slot.total;
+          map[slot.date][slot.time]=teachers.length?fullTeacherCount(teachers,slot.counts,capacity,slot.date,slot.time):slot.total;
         }
         result=map;
       }
