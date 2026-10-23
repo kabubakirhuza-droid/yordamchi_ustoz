@@ -595,7 +595,7 @@ class AdminDashboard {
       if (!response.ok || !session.authenticated || session.district !== this.district) throw new Error('expired_session');
       this.isAuthenticated = true;
       this.showApp();
-    } catch { this.logout(); }
+    } catch { this.handleAdminLogout(); }
   }
 
   detectDistrict() {
