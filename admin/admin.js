@@ -583,56 +583,19 @@ class AdminDashboard {
     this.bindEvents();
     this.applyLanguage(this.lang);
     
-    // Check for Magic Admin Invite Link (?key=admin, ?auth=uchtepa, ?invite=admin, ?access=admin, etc.)
+    this.isAuthenticated = false;
+    this.showAuthScreen();
+    if (this.token) this.restoreSession();
+  }
+
+  async restoreSession() {
     try {
-      const urlParams = new URLSearchParams(window.location.search);
-      const isMagicKey = (
-        urlParams.get('key') === 'admin' ||
-        urlParams.get('auth') === 'uchtepa' ||
-        urlParams.get('auth') === 'sergeli' ||
-        urlParams.get('auth') === 'admin' ||
-        urlParams.get('invite') === 'admin' ||
-        urlParams.get('access') === 'admin' ||
-        urlParams.get('admin') === 'true' ||
-        urlParams.get('token') === 'zinnur2026' ||
-        urlParams.get('token') === 'uchtepa' ||
-        urlParams.get('token') === 'sergeli'
-      );
-
-      if (isMagicKey) {
-        this.isAuthenticated = true;
-        const requestedDistrict = urlParams.get('district') || (urlParams.get('auth') === 'sergeli' || urlParams.get('token') === 'sergeli' ? 'sergeli' : this.district);
-        this.district = requestedDistrict;
-        this.currentRole = this.district === 'sergeli' ? 'Sergeli Tumani Administratori' : 'Uchtepa Tumani Administratori';
-        
-        localStorage.setItem('zn_admin_auth', 'true');
-        localStorage.setItem('zn_admin_district', this.district);
-        localStorage.setItem('zn_admin_role', this.currentRole);
-        localStorage.setItem('zn_admin_token', 'magic_invite_admin_token');
-
-        // Clean the URL bar so the key is not exposed in copy-pasting
-        const cleanUrl = window.location.pathname;
-        window.history.replaceState({}, document.title, cleanUrl);
-        
-        this._isMagicLogin = true;
-      }
-    } catch (e) {
-      console.warn("Magic invite check error", e);
-    }
-    
-    if (this.isAuthenticated) {
+      const response = await fetch('/api/auth', {headers:{Authorization:'Bearer '+this.token},signal:AbortSignal.timeout(10000)});
+      const session = await response.json();
+      if (!response.ok || !session.authenticated || session.district !== this.district) throw new Error('expired_session');
+      this.isAuthenticated = true;
       this.showApp();
-      if (this._isMagicLogin) {
-        setTimeout(() => {
-          const welcomeMsg = this.lang === 'ru' 
-            ? "Права администратора успешно предоставлены! Добро пожаловать."
-            : (this.lang === 'en' ? "Admin privileges granted! Welcome." : "Administrator huquqlari muvaffaqiyatli berildi! Xush kelibsiz.");
-          this.showToast(welcomeMsg, 'success');
-        }, 500);
-      }
-    } else {
-      this.showAuthScreen();
-    }
+    } catch { this.logout(); }
   }
 
   detectDistrict() {

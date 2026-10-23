@@ -822,90 +822,9 @@ function removeLogBookingFromTimetable_(row) {
 function doGet(e){
   const action = e && e.parameter ? e.parameter.action : '';
 
-  // 1. Admin Panel: Barcha arizalarni olish
-  if (action === 'get_bookings'){
-    return jsonOutput_(getAllBookings_());
-  }
-
-  // 2. Admin Panel & Sayt: Konfiguratsiya va sozlamalarni olish
-  if (action === 'get_config' || action === 'getConfig'){
-    const cfg = getAppConfig_() || {};
-    const defaultTeacherSchedule = {
-      "Feruza ustoza":  { offDays: [0], start: "13:00", end: "17:00" },
-      "Xadicha Ustoza": { offDays: [6], start: "09:00", end: "17:00" }
-    };
-    const defaultTeachers = [
-      { id: "t_1790852387410", name: "Feruza ustoza", login: "+998 99 999 99 99", phone: "+998 99 999 99 99", pin: '', courses: ["Arab tili - Harf", "Arab tili - Qoida", "Arab tili - Amaliyot"], startTime: "13:00", endTime: "17:00", daysOff: [0] },
-      { id: "t_1790859927339", name: "Xadicha Ustoza", login: "+998 11 111 11 1", phone: "+998 11 111 11 1", pin: '', courses: ["Arab tili - Harf", "Arab tili - Qoida", "Arab tili - Amaliyot"], startTime: "09:00", endTime: "17:00", daysOff: [6] }
-    ];
-    const defaultCourses = [
-      { id: "c1", name: "Arab tili - Harf", startTime: "09:00", endTime: "17:00", slotDuration: 30, capacity: 4, active: true },
-      { id: "c2", name: "Arab tili - Qoida", startTime: "09:00", endTime: "17:00", slotDuration: 30, capacity: 4, active: true },
-      { id: "c3", name: "Arab tili - Amaliyot", startTime: "09:00", endTime: "17:00", slotDuration: 30, capacity: 4, active: true },
-      { id: "c4", name: "Arab tili grammatikasi", startTime: "09:00", endTime: "17:00", slotDuration: 30, capacity: 4, active: true },
-      { id: "c5", name: "Ingliz tili", startTime: "09:00", endTime: "12:00", slotDuration: 30, capacity: 1, active: true },
-      { id: "c6", name: "Nurli Bolajon", startTime: "13:00", endTime: "17:00", slotDuration: 30, capacity: 1, active: true }
-    ];
-
-    // 1. Kurslarni birlashtirish (Baza + Code.gs dagi yangi kurslar)
-    let baseCourses = (cfg.courses && cfg.courses.length > 0) ? cfg.courses.slice() : defaultCourses.slice();
-    const deletedCoursesList = cfg.deletedCourses || [];
-    const delSet = deletedCoursesList.map(function(s){ return String(s || '').trim().toLowerCase(); });
-
-    // Agar Code.gs da defaultCourses ga yangi kurs qo'shilgan bo'lsa va u bazada bo'lmasa, uni qo'shamiz
-    defaultCourses.forEach(function(dc) {
-      const dcName = (typeof dc === 'string' ? dc : (dc.name || '')).trim().toLowerCase();
-      if (!dcName || delSet.indexOf(dcName) !== -1) return;
-      const exists = baseCourses.some(function(bc) {
-        const bcName = (typeof bc === 'string' ? bc : (bc.name || '')).trim().toLowerCase();
-        return bcName === dcName;
-      });
-      if (!exists) {
-        baseCourses.push(dc);
-      }
-    });
-
-    let finalCourses = baseCourses.filter(function(c) {
-      const name = typeof c === 'string' ? c : (c.name || '');
-      const id = typeof c === 'object' && c.id ? String(c.id).toLowerCase() : '';
-      return delSet.indexOf(name.trim().toLowerCase()) === -1 && (id ? delSet.indexOf(id) === -1 : true);
-    });
-
-    // 2. Ustozalarni birlashtirish (Baza + Code.gs dagi yangi ustozalar)
-    let baseTeachers = (cfg.teachers && cfg.teachers.length > 0) ? cfg.teachers.slice() : defaultTeachers.slice();
-    const deletedTeachersList = cfg.deletedTeachers || [];
-    const delTeacherSet = deletedTeachersList.map(function(s){ return String(s || '').trim().toLowerCase(); });
-
-    defaultTeachers.forEach(function(dt) {
-      const dtName = (dt && dt.name ? dt.name : '').trim().toLowerCase();
-      if (!dtName || delTeacherSet.indexOf(dtName) !== -1) return;
-      const exists = baseTeachers.some(function(bt) {
-        const btName = (bt && bt.name ? bt.name : '').trim().toLowerCase();
-        return btName === dtName;
-      });
-      if (!exists) {
-        baseTeachers.push(dt);
-      }
-    });
-
-    let finalTeachers = baseTeachers.filter(function(t) {
-      const name = (t && t.name ? t.name : '').trim().toLowerCase();
-      const id = (t && t.id ? String(t.id).toLowerCase() : '');
-      return delTeacherSet.indexOf(name) === -1 && (id ? delTeacherSet.indexOf(id) === -1 : true);
-    });
-
-    return jsonOutput_({
-      config: cfg,
-      district: "sergeli",
-      teachers: finalTeachers,
-      courses: finalCourses,
-      courseTeachers: cfg.courseTeachers || COURSE_TEACHERS_,
-      teacherSchedule: cfg.teacherSchedule || defaultTeacherSchedule,
-      deletedTeachers: cfg.deletedTeachers || [],
-      deletedCourses: cfg.deletedCourses || [],
-      holidayDates: cfg.holidayDates || ["31.08.2026", "01.09.2026"],
-      courseExcludedDays: cfg.courseExcludedDays || { "Nurli Bolajon": [0, 1, 2, 3, 5, 6] }
-    });
+  // Private reads are served by the authenticated website API.
+  if (['get_bookings','get_config','getConfig'].indexOf(action) !== -1) {
+    return jsonOutput_({success:false,error:'unauthorized'});
   }
 
   // 3. Asosiy sayt: Bandlik xaritasini olish
@@ -991,6 +910,8 @@ function doPost(e){
   } catch (err){
     return jsonOutput_({ success: false, error: 'invalid_json' });
   }
+
+  if (!authorizedSupportRequest_(data)) return jsonOutput_({success:false,error:'unauthorized'});
 
   // 1. Admin Panel: Sozlamalarni saqlash
   if (data.action === 'save_config' || data.action === 'saveConfig'){
@@ -1214,4 +1135,13 @@ function setupMonthlySheets() {
       .everyDays(1).atHour(0).inTimezone('Asia/Tashkent').create();
   }
   return names;
+}
+
+// Only the approved Supabase worker may mutate this spreadsheet.
+function authorizedSupportRequest_(data) {
+  const token = String(data && data._supportToken || '');
+  if (!token) return false;
+  const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, token, Utilities.Charset.UTF_8);
+  const hash = digest.map(function(b){return ('0'+((b+256)%256).toString(16)).slice(-2);}).join('');
+  return hash === 'e9d11f2a488253da58495ee842f21559d5c784ec58a503ee3adb8f069f23d6f7';
 }

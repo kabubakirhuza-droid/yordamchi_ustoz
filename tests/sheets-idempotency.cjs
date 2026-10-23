@@ -21,6 +21,7 @@ ctx.getEffectiveSlots_=()=>['09:00'];ctx.getEffectiveCapacity_=()=>1;
 ctx.getOrCreateCourseSheet_=()=>({getRange:()=>cell});ctx.findTimeRow_=()=>3;ctx.getOrCreateDateColumn_=()=>2;
 ctx.appendBookingToLogSheet_=b=>{if(failOnce){failOnce=false;throw Error('Temporary history failure');}ids.push(b.bookingId);return b.bookingId;};
 ctx.jsonOutput_=value=>value;
+ctx.authorizedSupportRequest_=()=>true;
 const b={action:'register',bookingId:'test-request-12345',ism:'Test',familiya:'Retry',telefon:'+998 90 000 00 00',kurs:'Course',sana:'28.10.2026',vaqt:'09:00'};
 const event={postData:{contents:JSON.stringify(b)}};
 assert.equal(ctx.doPost(event).success,false);

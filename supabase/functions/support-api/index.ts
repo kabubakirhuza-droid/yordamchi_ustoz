@@ -91,13 +91,13 @@ async function register(district, payload, config) {
   const booking = { ...payload, id: crypto.randomUUID(), dateISO: date.iso, kun: ['Yakshanba','Dushanba','Seshanba','Chorshanba','Payshanba','Juma','Shanba'][date.day] };
   return await db('rpc/support_reserve_booking', 'POST', { p_district: district, p_booking: booking, p_capacity: Number(course.capacity) || 4 });
 }
-async function syncSheetsBatch() {
+async function syncSheetsBatch(token) {
   const jobs = await db('rpc/support_claim_sheet_jobs', 'POST', { p_limit: 2 });
   let completed = 0;
   await Promise.all(jobs.map(async job => {
     try {
       const response = await fetch(SCRIPTS[job.district], { method: 'POST', headers: {'Content-Type':'text/plain;charset=utf-8'},
-        body: JSON.stringify(job.payload), redirect: 'follow', signal: AbortSignal.timeout(25000) });
+        body: JSON.stringify({...job.payload,_supportToken:token}), redirect: 'follow', signal: AbortSignal.timeout(25000) });
       const result = await response.json();
       if (!response.ok || result.success !== true) throw new Error(result.error || 'sheets_unconfirmed');
       await db(`support_sheet_outbox?id=eq.${job.id}`, 'PATCH', { processed_at: new Date().toISOString(), locked_until: null, last_error: null });
@@ -109,22 +109,22 @@ async function syncSheetsBatch() {
   }));
   return { success: true, completed, attempted: jobs.length };
 }
-async function syncSheets() {
+async function syncSheets(token) {
   const started=Date.now(); let completed=0,attempted=0;
   for(let pass=0;pass<15 && Date.now()-started<40000;pass++) {
-    const result=await syncSheetsBatch();completed+=result.completed;attempted+=result.attempted;
+    const result=await syncSheetsBatch(token);completed+=result.completed;attempted+=result.attempted;
     if(!result.attempted)break;
   }
   return {success:true,completed,attempted};
 }
-function backgroundSync() { EdgeRuntime.waitUntil(syncSheets().catch(error => console.error('Sheet worker:', error.message))); }
+function backgroundSync(token) { EdgeRuntime.waitUntil(syncSheets(token).catch(error => console.error('Sheet worker:', error.message))); }
 Deno.serve(async req => {
   try {
     const token = req.headers.get('x-support-token') || '';
     const keys = await db('support_gateway?name=eq.website&select=token_hash');
     if (!token || !keys.length || await sha256(token) !== keys[0].token_hash) return Response.json({success:false,error:'unauthorized'},{status:401});
     const body = await req.json();
-    if (body.action === 'sync_sheets') return Response.json(await syncSheets());
+    if (body.action === 'sync_sheets') return Response.json(await syncSheets(token));
     const district = body.district;
     if (!SCRIPTS[district]) return Response.json({success:false,error:'invalid_district'},{status:400});
     const config = await settings(district);
@@ -157,7 +157,7 @@ Deno.serve(async req => {
       }
     }
     else if (action === 'public_config') result = { config: publicSettings(config) };
-    else if (action === 'register') { result = await register(district,body.payload,config); if(result.success) backgroundSync(); }
+    else if (action === 'register') { result = await register(district,body.payload,config); if(result.success) backgroundSync(token); }
     else if (action === 'get_config' || action === 'get_bookings') {
       const rows = await bookings(district,body.teacherName || null);
       result = action === 'get_bookings' ? rows.map(panelBooking) : {
@@ -206,9 +206,9 @@ Deno.serve(async req => {
     } else if (action === 'save_config') {
       const next = {...body.payload.config, district};
       await db('rpc/support_save_settings','POST',{p_district:district,p_config:next});
-      result={success:true,status:'ok',...next}; backgroundSync();
+      result={success:true,status:'ok',...next}; backgroundSync(token);
     } else if (action === 'update_status' || action === 'delete_booking') {
-      result=await db('rpc/support_update_booking','POST',{p_district:district,p_id:body.payload.id,p_status:body.payload.status || 'Bekor qilingan',p_delete:action==='delete_booking'}); backgroundSync();
+      result=await db('rpc/support_update_booking','POST',{p_district:district,p_id:body.payload.id,p_status:body.payload.status || 'Bekor qilingan',p_delete:action==='delete_booking'}); backgroundSync(token);
     } else if (action === 'teacher_state') {
       if(body.payload.data) {
         await db('support_teacher_state?on_conflict=district,teacher_id','POST',{district,teacher_id:body.teacherId,data:body.payload.data,updated_at:new Date().toISOString()},'resolution=merge-duplicates');
